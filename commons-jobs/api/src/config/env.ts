@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 loadDotenv();
 
-const DEFAULT_ADMIN_PASSWORD = 'admin12345';
+const DEFAULT_ADMIN_PASSWORD = 'Tark101';
 const DEFAULT_ADMIN_TOKEN_SECRET = 'change-me-super-secret-please';
 
 const envSchema = z.object({
@@ -11,7 +11,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4010),
   DATA_FILE: z.string().default('data/jobs.json'),
   CLIENT_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3010,http://localhost:5173'),
-  ADMIN_PASSWORD: z.string().min(8).default(DEFAULT_ADMIN_PASSWORD),
+  ADMIN_PASSWORD: z.string().min(7).default(DEFAULT_ADMIN_PASSWORD),
   ADMIN_TOKEN_SECRET: z.string().min(16).default(DEFAULT_ADMIN_TOKEN_SECRET),
   GEMINI_API_KEY: z.string().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),

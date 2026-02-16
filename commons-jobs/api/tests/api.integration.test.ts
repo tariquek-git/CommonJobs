@@ -6,7 +6,7 @@ import { _resetRateLimitForTests } from '../src/lib/rateLimit.js';
 describe('API integration', () => {
   beforeEach(() => {
     _resetRateLimitForTests();
-    process.env.ADMIN_PASSWORD = 'admin12345';
+    process.env.ADMIN_PASSWORD = 'Tark101';
     process.env.ADMIN_TOKEN_SECRET = '12345678901234567890';
   });
 
@@ -35,7 +35,7 @@ describe('API integration', () => {
     const loginRes = await app.inject({
       method: 'POST',
       url: '/auth/admin-login',
-      payload: { password: 'admin12345' }
+      payload: { password: 'Tark101' }
     });
     expect(loginRes.statusCode).toBe(200);
     const token = (loginRes.json() as { token: string }).token;
