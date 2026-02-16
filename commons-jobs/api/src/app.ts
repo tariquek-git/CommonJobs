@@ -1,0 +1,247 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import { createAdminToken, verifyAdminToken } from './auth/adminAuth.js';
+import { allowedOrigins, env } from './config/env.js';
+import { checkRateLimit } from './lib/rateLimit.js';
+import { applySecurityHeaders } from './lib/securityHeaders.js';
+import { badRequest, notFound, tooManyRequests, unauthorized } from './lib/http.js';
+import { filterPublicJobs } from './services/filterJobs.js';
+import {
+  adminCreateJobSchema,
+  adminStatusSchema,
+  adminUpdateJobSchema,
+  ensurePublicJob,
+  normalizeIncomingJob,
+  publicSubmissionSchema,
+  searchSchema
+} from './services/jobValidation.js';
+import { JobRepository } from './storage/jobRepository.js';
+import { analyzeJobDescription, parseSearchQuery } from './services/aiService.js';
+import { JobPosting } from './types/jobs.js';
+
+export const buildApp = (repository: JobRepository) => {
+  const app = Fastify({ logger: false });
+
+  app.register(cors, {
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('Origin not allowed'), false);
+    }
+  });
+
+  app.addHook('onRequest', applySecurityHeaders);
+
+  const getRequestIp = (request: { headers: Record<string, unknown>; ip?: string }) => {
+    const xff = request.headers['x-forwarded-for'];
+    if (typeof xff === 'string') {
+      return xff.split(',')[0].trim();
+    }
+    return request.ip || 'unknown';
+  };
+
+  const adminGuard = (authorization?: string) => {
+    if (!authorization || !authorization.startsWith('Bearer ')) return false;
+    const token = authorization.slice('Bearer '.length);
+    return verifyAdminToken(token, env.ADMIN_TOKEN_SECRET);
+  };
+
+  app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
+
+  app.post('/auth/admin-login', async (request, reply) => {
+    const ip = getRequestIp(request);
+    const limit = checkRateLimit(`admin-login:${ip}`, {
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      maxRequests: env.RATE_LIMIT_MAX_ADMIN_LOGIN
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
+    const body = (request.body || {}) as { password?: string };
+    if (!body.password) return badRequest(reply, 'Password required');
+    if (body.password !== env.ADMIN_PASSWORD) return unauthorized(reply, 'Invalid password');
+
+    return { token: createAdminToken(env.ADMIN_TOKEN_SECRET) };
+  });
+
+  app.post('/jobs/search', async (request, reply) => {
+    const parsed = searchSchema.safeParse(request.body || {});
+    if (!parsed.success) return badRequest(reply, 'Invalid search request');
+
+    const jobs = await repository.list();
+    const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType);
+    return { jobs: filtered };
+  });
+
+  app.get('/jobs/:id', async (request, reply) => {
+    const params = request.params as { id: string };
+    const jobs = await repository.list();
+    const job = jobs.find((j) => j.id === params.id);
+    if (!job) return notFound(reply, 'Job not found');
+
+    const isAdmin = adminGuard(request.headers.authorization);
+    if (!isAdmin && job.status !== 'active') return notFound(reply, 'Job not found');
+    return { job };
+  });
+
+  app.post('/jobs/:id/click', async (request, reply) => {
+    const params = request.params as { id: string };
+    const jobs = await repository.list();
+    const idx = jobs.findIndex((j) => j.id === params.id);
+    if (idx < 0) return notFound(reply, 'Job not found');
+
+    jobs[idx] = { ...jobs[idx], clicks: jobs[idx].clicks + 1 };
+    await repository.replaceAll(jobs);
+    return { ok: true, clicks: jobs[idx].clicks };
+  });
+
+  app.post('/jobs/submissions', async (request, reply) => {
+    const ip = getRequestIp(request);
+    const limit = checkRateLimit(`job-submit:${ip}`, {
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      maxRequests: env.RATE_LIMIT_MAX_SUBMIT
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
+    const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
+    const parsed = publicSubmissionSchema.safeParse(normalized);
+    if (!parsed.success) return badRequest(reply, 'Invalid submission payload');
+
+    if (normalized.website) {
+      return badRequest(reply, 'Invalid submission payload');
+    }
+
+    if (!normalized.externalLink) {
+      return badRequest(reply, 'A valid apply link is required');
+    }
+
+    const payload = ensurePublicJob(normalized);
+
+    const jobs = await repository.list();
+    const newJob: JobPosting = {
+      ...payload,
+      id: crypto.randomUUID(),
+      postedDate: payload.postedDate || new Date().toISOString(),
+      clicks: 0
+    };
+
+    jobs.unshift(newJob);
+    await repository.replaceAll(jobs);
+    return reply.status(201).send({ ok: true, jobId: newJob.id });
+  });
+
+  app.get('/admin/jobs', async (request, reply) => {
+    if (!adminGuard(request.headers.authorization)) {
+      return unauthorized(reply);
+    }
+
+    const jobs = await repository.list();
+    jobs.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+    return { jobs };
+  });
+
+  app.post('/admin/jobs', async (request, reply) => {
+    if (!adminGuard(request.headers.authorization)) {
+      return unauthorized(reply);
+    }
+
+    const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
+    const parsed = adminCreateJobSchema.safeParse(normalized);
+    if (!parsed.success || !normalized.externalLink) {
+      return badRequest(reply, 'Invalid job payload');
+    }
+
+    const jobs = await repository.list();
+    const newJob: JobPosting = {
+      id: crypto.randomUUID(),
+      companyName: parsed.data.companyName,
+      companyWebsite: parsed.data.companyWebsite || '',
+      roleTitle: parsed.data.roleTitle,
+      externalLink: normalized.externalLink,
+      postedDate: parsed.data.postedDate || new Date().toISOString(),
+      status: parsed.data.status,
+      sourceType: parsed.data.sourceType,
+      isVerified: parsed.data.isVerified,
+      externalSource: parsed.data.externalSource,
+      intelligenceSummary: parsed.data.intelligenceSummary,
+      locationCity: parsed.data.locationCity,
+      locationState: parsed.data.locationState,
+      locationCountry: parsed.data.locationCountry,
+      region: parsed.data.region,
+      remotePolicy: parsed.data.remotePolicy,
+      employmentType: parsed.data.employmentType,
+      seniority: parsed.data.seniority,
+      salaryRange: parsed.data.salaryRange,
+      currency: parsed.data.currency,
+      tags: parsed.data.tags,
+      submitterName: parsed.data.submitterName,
+      submitterEmail: parsed.data.submitterEmail,
+      clicks: 0
+    };
+
+    jobs.unshift(newJob);
+    await repository.replaceAll(jobs);
+    return reply.status(201).send({ job: newJob });
+  });
+
+  app.patch('/admin/jobs/:id/status', async (request, reply) => {
+    if (!adminGuard(request.headers.authorization)) {
+      return unauthorized(reply);
+    }
+
+    const params = request.params as { id: string };
+    const parsed = adminStatusSchema.safeParse(request.body || {});
+    if (!parsed.success) return badRequest(reply, 'Invalid status payload');
+
+    const jobs = await repository.list();
+    const idx = jobs.findIndex((job) => job.id === params.id);
+    if (idx < 0) return notFound(reply, 'Job not found');
+
+    jobs[idx] = { ...jobs[idx], status: parsed.data.status };
+    await repository.replaceAll(jobs);
+    return { job: jobs[idx] };
+  });
+
+  app.patch('/admin/jobs/:id', async (request, reply) => {
+    if (!adminGuard(request.headers.authorization)) {
+      return unauthorized(reply);
+    }
+
+    const params = request.params as { id: string };
+    const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
+    const parsed = adminUpdateJobSchema.safeParse(normalized);
+    if (!parsed.success) return badRequest(reply, 'Invalid job payload');
+
+    const jobs = await repository.list();
+    const idx = jobs.findIndex((job) => job.id === params.id);
+    if (idx < 0) return notFound(reply, 'Job not found');
+
+    const current = jobs[idx];
+    const next: JobPosting = {
+      ...current,
+      ...Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)),
+      externalLink: normalized.externalLink || current.externalLink,
+      companyWebsite: normalized.companyWebsite ?? current.companyWebsite,
+      tags: normalized.tags || current.tags
+    };
+
+    jobs[idx] = next;
+    await repository.replaceAll(jobs);
+    return { job: next };
+  });
+
+  app.post('/ai/analyze-job', async (request, reply) => {
+    const body = (request.body || {}) as { description?: string };
+    if (!body.description) return badRequest(reply, 'Description required');
+    const result = await analyzeJobDescription(body.description);
+    return { result };
+  });
+
+  app.post('/ai/parse-search', async (request, reply) => {
+    const body = (request.body || {}) as { query?: string };
+    if (!body.query) return badRequest(reply, 'Query required');
+    const result = await parseSearchQuery(body.query);
+    return { result };
+  });
+
+  return app;
+};
