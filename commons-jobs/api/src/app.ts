@@ -16,17 +16,20 @@ import {
   publicSubmissionSchema,
   searchSchema
 } from './services/jobValidation.js';
+import { ClickRepository } from './storage/clickRepository.js';
 import { JobRepository } from './storage/jobRepository.js';
 import { createAiService } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
-export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
+export const buildApp = (repository: JobRepository, clickRepository: ClickRepository, appEnv: AppEnv) => {
   const app = Fastify({
     logger: appEnv.NODE_ENV !== 'test',
     trustProxy: appEnv.TRUST_PROXY
   });
   const allowedOrigins = parseAllowedOrigins(appEnv.CLIENT_ORIGIN);
   const aiService = createAiService(appEnv.GEMINI_API_KEY);
+  const clickDedupeWindow = Math.max(1, appEnv.CLICK_DEDUPE_WINDOW_MS);
+  const clickDedupe = new Map<string, number>();
 
   app.register(cors, {
     origin: (origin, cb) => {
@@ -59,6 +62,32 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
     return verifyAdminToken(token, appEnv.ADMIN_TOKEN_SECRET);
   };
 
+  const hydrateClicks = async (jobs: JobPosting[]): Promise<JobPosting[]> => {
+    if (jobs.length === 0) return [];
+    const clickMap = await clickRepository.getMany(jobs.map((job) => job.id));
+    return jobs.map((job) => ({
+      ...job,
+      clicks: clickMap[job.id] ?? job.clicks ?? 0
+    }));
+  };
+
+  const isDuplicateClick = (jobId: string, ip: string): boolean => {
+    const now = Date.now();
+    const key = `${jobId}:${ip}`;
+    const lastSeen = clickDedupe.get(key);
+    clickDedupe.set(key, now);
+
+    if (clickDedupe.size > 5000) {
+      for (const [entryKey, timestamp] of clickDedupe.entries()) {
+        if (now - timestamp > clickDedupeWindow) {
+          clickDedupe.delete(entryKey);
+        }
+      }
+    }
+
+    return typeof lastSeen === 'number' && now - lastSeen < clickDedupeWindow;
+  };
+
   app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
 
   app.post('/auth/admin-login', async (request, reply) => {
@@ -89,7 +118,7 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
 
     const jobs = await repository.list();
     const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType);
-    return { jobs: filtered };
+    return { jobs: await hydrateClicks(filtered) };
   });
 
   app.get('/jobs/:id', async (request, reply) => {
@@ -100,18 +129,28 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
 
     const isAdmin = adminGuard(request.headers.authorization);
     if (!isAdmin && job.status !== 'active') return notFound(reply, 'Job not found');
-    return { job };
+    const clicks = await clickRepository.get(job.id);
+    return { job: { ...job, clicks } };
   });
 
   app.post('/jobs/:id/click', async (request, reply) => {
+    const ip = request.ip;
+    const limit = checkRateLimit(`job-click:${ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_CLICK
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
     const params = request.params as { id: string };
     const jobs = await repository.list();
-    const idx = jobs.findIndex((j) => j.id === params.id);
-    if (idx < 0) return notFound(reply, 'Job not found');
+    const job = jobs.find((j) => j.id === params.id && j.status === 'active');
+    if (!job) return notFound(reply, 'Job not found');
 
-    jobs[idx] = { ...jobs[idx], clicks: jobs[idx].clicks + 1 };
-    await repository.replaceAll(jobs);
-    return { ok: true, clicks: jobs[idx].clicks };
+    if (isDuplicateClick(params.id, ip)) {
+      return { ok: true, deduped: true, clicks: await clickRepository.get(params.id) };
+    }
+
+    return { ok: true, clicks: await clickRepository.increment(params.id) };
   });
 
   app.post('/jobs/submissions', async (request, reply) => {
@@ -136,16 +175,17 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
 
     const payload = ensurePublicJob(normalized);
 
-    const jobs = await repository.list();
-    const newJob: JobPosting = {
-      ...payload,
-      id: crypto.randomUUID(),
-      postedDate: payload.postedDate || new Date().toISOString(),
-      clicks: 0
-    };
+    const newJob = await repository.mutate((jobs) => {
+      const created: JobPosting = {
+        ...payload,
+        id: crypto.randomUUID(),
+        postedDate: payload.postedDate || new Date().toISOString(),
+        clicks: 0
+      };
+      jobs.unshift(created);
+      return created;
+    });
 
-    jobs.unshift(newJob);
-    await repository.replaceAll(jobs);
     return reply.status(201).send({ ok: true, jobId: newJob.id });
   });
 
@@ -155,8 +195,9 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
     }
 
     const jobs = await repository.list();
-    jobs.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
-    return { jobs };
+    const withClicks = await hydrateClicks(jobs);
+    withClicks.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+    return { jobs: withClicks };
   });
 
   app.post('/admin/jobs', async (request, reply) => {
@@ -166,40 +207,43 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
 
     const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
     const parsed = adminCreateJobSchema.safeParse(normalized);
-    if (!parsed.success || !normalized.externalLink) {
+    const externalLink = normalized.externalLink;
+    if (!parsed.success || !externalLink) {
       return badRequest(reply, 'Invalid job payload');
     }
 
-    const jobs = await repository.list();
-    const newJob: JobPosting = {
-      id: crypto.randomUUID(),
-      companyName: parsed.data.companyName,
-      companyWebsite: parsed.data.companyWebsite || '',
-      roleTitle: parsed.data.roleTitle,
-      externalLink: normalized.externalLink,
-      postedDate: parsed.data.postedDate || new Date().toISOString(),
-      status: parsed.data.status,
-      sourceType: parsed.data.sourceType,
-      isVerified: parsed.data.isVerified,
-      externalSource: parsed.data.externalSource,
-      intelligenceSummary: parsed.data.intelligenceSummary,
-      locationCity: parsed.data.locationCity,
-      locationState: parsed.data.locationState,
-      locationCountry: parsed.data.locationCountry,
-      region: parsed.data.region,
-      remotePolicy: parsed.data.remotePolicy,
-      employmentType: parsed.data.employmentType,
-      seniority: parsed.data.seniority,
-      salaryRange: parsed.data.salaryRange,
-      currency: parsed.data.currency,
-      tags: parsed.data.tags,
-      submitterName: parsed.data.submitterName,
-      submitterEmail: parsed.data.submitterEmail,
-      clicks: 0
-    };
+    const newJob = await repository.mutate((jobs) => {
+      const created: JobPosting = {
+        id: crypto.randomUUID(),
+        companyName: parsed.data.companyName,
+        companyWebsite: parsed.data.companyWebsite || '',
+        roleTitle: parsed.data.roleTitle,
+        externalLink,
+        postedDate: parsed.data.postedDate || new Date().toISOString(),
+        status: parsed.data.status,
+        sourceType: parsed.data.sourceType,
+        isVerified: parsed.data.isVerified,
+        externalSource: parsed.data.externalSource,
+        intelligenceSummary: parsed.data.intelligenceSummary,
+        locationCity: parsed.data.locationCity,
+        locationState: parsed.data.locationState,
+        locationCountry: parsed.data.locationCountry,
+        region: parsed.data.region,
+        remotePolicy: parsed.data.remotePolicy,
+        employmentType: parsed.data.employmentType,
+        seniority: parsed.data.seniority,
+        salaryRange: parsed.data.salaryRange,
+        currency: parsed.data.currency,
+        tags: parsed.data.tags,
+        submitterName: parsed.data.submitterName,
+        submitterEmail: parsed.data.submitterEmail,
+        clicks: 0
+      };
 
-    jobs.unshift(newJob);
-    await repository.replaceAll(jobs);
+      jobs.unshift(created);
+      return created;
+    });
+
     return reply.status(201).send({ job: newJob });
   });
 
@@ -212,13 +256,16 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
     const parsed = adminStatusSchema.safeParse(request.body || {});
     if (!parsed.success) return badRequest(reply, 'Invalid status payload');
 
-    const jobs = await repository.list();
-    const idx = jobs.findIndex((job) => job.id === params.id);
-    if (idx < 0) return notFound(reply, 'Job not found');
+    const updated = await repository.mutate((jobs) => {
+      const idx = jobs.findIndex((job) => job.id === params.id);
+      if (idx < 0) return null;
 
-    jobs[idx] = { ...jobs[idx], status: parsed.data.status };
-    await repository.replaceAll(jobs);
-    return { job: jobs[idx] };
+      jobs[idx] = { ...jobs[idx], status: parsed.data.status };
+      return jobs[idx];
+    });
+
+    if (!updated) return notFound(reply, 'Job not found');
+    return { job: { ...updated, clicks: await clickRepository.get(updated.id) } };
   });
 
   app.patch('/admin/jobs/:id', async (request, reply) => {
@@ -231,22 +278,25 @@ export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
     const parsed = adminUpdateJobSchema.safeParse(normalized);
     if (!parsed.success) return badRequest(reply, 'Invalid job payload');
 
-    const jobs = await repository.list();
-    const idx = jobs.findIndex((job) => job.id === params.id);
-    if (idx < 0) return notFound(reply, 'Job not found');
+    const updated = await repository.mutate((jobs) => {
+      const idx = jobs.findIndex((job) => job.id === params.id);
+      if (idx < 0) return null;
 
-    const current = jobs[idx];
-    const next: JobPosting = {
-      ...current,
-      ...Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)),
-      externalLink: normalized.externalLink || current.externalLink,
-      companyWebsite: normalized.companyWebsite ?? current.companyWebsite,
-      tags: normalized.tags || current.tags
-    };
+      const current = jobs[idx];
+      const next: JobPosting = {
+        ...current,
+        ...Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)),
+        externalLink: normalized.externalLink || current.externalLink,
+        companyWebsite: normalized.companyWebsite ?? current.companyWebsite,
+        tags: normalized.tags || current.tags
+      };
 
-    jobs[idx] = next;
-    await repository.replaceAll(jobs);
-    return { job: next };
+      jobs[idx] = next;
+      return next;
+    });
+
+    if (!updated) return notFound(reply, 'Job not found');
+    return { job: { ...updated, clicks: await clickRepository.get(updated.id) } };
   });
 
   app.post('/ai/analyze-job', async (request, reply) => {

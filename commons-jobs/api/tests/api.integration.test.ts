@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
+import { JobPosting } from '../src/types/jobs.js';
+import { InMemoryClickRepository } from '../src/storage/inMemoryClickRepository.js';
 import { InMemoryJobRepository } from '../src/storage/inMemoryJobRepository.js';
 import { _resetRateLimitForTests } from '../src/lib/rateLimit.js';
 import { hashAdminPassword } from '../src/auth/adminPassword.js';
@@ -37,7 +39,7 @@ describe('API integration', () => {
 
   it('submit -> approve -> visible -> click apply happy path', async () => {
     const repo = new InMemoryJobRepository([]);
-    const app = buildApp(repo, buildTestEnv());
+    const app = buildApp(repo, new InMemoryClickRepository(), buildTestEnv());
 
     const submitRes = await app.inject({
       method: 'POST',
@@ -106,14 +108,14 @@ describe('API integration', () => {
   });
 
   it('rejects admin endpoints without token', async () => {
-    const app = buildApp(new InMemoryJobRepository(), buildTestEnv());
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({ method: 'GET', url: '/admin/jobs' });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
 
   it('rejects wrong admin password', async () => {
-    const app = buildApp(new InMemoryJobRepository(), buildTestEnv());
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({
       method: 'POST',
       url: '/auth/admin-login',
@@ -127,6 +129,7 @@ describe('API integration', () => {
   it('rate limiting uses request.ip and is not bypassed by spoofed x-forwarded-for on login', async () => {
     const app = buildApp(
       new InMemoryJobRepository(),
+      new InMemoryClickRepository(),
       buildTestEnv({
         RATE_LIMIT_MAX_ADMIN_LOGIN: '1'
       })
@@ -153,6 +156,7 @@ describe('API integration', () => {
   it('rate limiting uses request.ip and is not bypassed by spoofed x-forwarded-for on submissions', async () => {
     const app = buildApp(
       new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
       buildTestEnv({
         RATE_LIMIT_MAX_SUBMIT: '1'
       })
@@ -180,6 +184,115 @@ describe('API integration', () => {
       url: '/jobs/submissions',
       headers: { 'x-forwarded-for': '1.1.1.1' },
       payload
+    });
+    expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('rejects invalid submission payloads', async () => {
+    const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/submissions',
+      payload: {
+        companyName: 'Nova Labs',
+        roleTitle: 'Risk Analyst'
+      }
+    });
+
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('click endpoint increments only active jobs and dedupes rapid repeated clicks', async () => {
+    const pendingJob: JobPosting = {
+      id: 'job-pending',
+      companyName: 'Acme',
+      companyWebsite: 'https://example.com',
+      roleTitle: 'Pending Role',
+      externalLink: 'https://example.com/apply',
+      postedDate: new Date().toISOString(),
+      status: 'pending',
+      sourceType: 'Direct',
+      isVerified: true,
+      clicks: 0
+    };
+
+    const activeJob: JobPosting = {
+      ...pendingJob,
+      id: 'job-active',
+      roleTitle: 'Active Role',
+      status: 'active'
+    };
+
+    const app = buildApp(
+      new InMemoryJobRepository([pendingJob, activeJob]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        RATE_LIMIT_MAX_CLICK: '10',
+        CLICK_DEDUPE_WINDOW_MS: '60000'
+      })
+    );
+
+    const pendingClick = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-pending/click'
+    });
+    expect(pendingClick.statusCode).toBe(404);
+
+    const firstActiveClick = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-active/click'
+    });
+    expect(firstActiveClick.statusCode).toBe(200);
+    expect((firstActiveClick.json() as { clicks: number }).clicks).toBe(1);
+
+    const duplicateClick = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-active/click'
+    });
+    expect(duplicateClick.statusCode).toBe(200);
+    const duplicateBody = duplicateClick.json() as { clicks: number; deduped?: boolean };
+    expect(duplicateBody.clicks).toBe(1);
+    expect(duplicateBody.deduped).toBe(true);
+
+    await app.close();
+  });
+
+  it('click endpoint rate limit applies per request.ip', async () => {
+    const activeJob: JobPosting = {
+      id: 'job-active',
+      companyName: 'Acme',
+      companyWebsite: 'https://example.com',
+      roleTitle: 'Active Role',
+      externalLink: 'https://example.com/apply',
+      postedDate: new Date().toISOString(),
+      status: 'active',
+      sourceType: 'Direct',
+      isVerified: true,
+      clicks: 0
+    };
+
+    const app = buildApp(
+      new InMemoryJobRepository([activeJob]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        RATE_LIMIT_MAX_CLICK: '1',
+        CLICK_DEDUPE_WINDOW_MS: '0'
+      })
+    );
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-active/click'
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-active/click',
+      headers: { 'x-forwarded-for': '203.0.113.1' }
     });
     expect(second.statusCode).toBe(429);
 
