@@ -94,11 +94,11 @@ export const trackClick = (id: string) => {
   });
 };
 
-export const adminLogin = async (password: string): Promise<boolean> => {
+export const adminLogin = async (username: string, password: string): Promise<boolean> => {
   try {
     const data = await apiFetch<{ token: string }>('/auth/admin-login', {
       method: 'POST',
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ username, password })
     });
 
     if (!data.token) return false;

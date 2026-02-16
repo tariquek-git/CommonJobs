@@ -39,7 +39,7 @@ describe('jobService', () => {
       })
     );
 
-    const ok = await adminLogin('password');
+    const ok = await adminLogin('admin', 'password');
     expect(ok).toBe(true);
     expect(hasAdminSession()).toBe(true);
   });

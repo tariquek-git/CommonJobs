@@ -1,10 +1,11 @@
 import { resolve } from 'node:path';
 import { buildApp } from './app.js';
-import { env } from './config/env.js';
+import { parseEnv } from './config/env.js';
 import { FileJobRepository } from './storage/fileJobRepository.js';
 
+const env = parseEnv(process.env);
 const repository = new FileJobRepository(resolve(process.cwd(), env.DATA_FILE));
-const app = buildApp(repository);
+const app = buildApp(repository, env);
 
 const start = async () => {
   try {

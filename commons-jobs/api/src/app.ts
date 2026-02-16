@@ -1,7 +1,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { createAdminToken, verifyAdminToken } from './auth/adminAuth.js';
-import { allowedOrigins, env } from './config/env.js';
+import { verifyAdminPassword } from './auth/adminPassword.js';
+import { AppEnv, parseAllowedOrigins } from './config/env.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { applySecurityHeaders } from './lib/securityHeaders.js';
 import { badRequest, notFound, tooManyRequests, unauthorized } from './lib/http.js';
@@ -16,11 +17,16 @@ import {
   searchSchema
 } from './services/jobValidation.js';
 import { JobRepository } from './storage/jobRepository.js';
-import { analyzeJobDescription, parseSearchQuery } from './services/aiService.js';
+import { createAiService } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
-export const buildApp = (repository: JobRepository) => {
-  const app = Fastify({ logger: false });
+export const buildApp = (repository: JobRepository, appEnv: AppEnv) => {
+  const app = Fastify({
+    logger: appEnv.NODE_ENV !== 'test',
+    trustProxy: appEnv.TRUST_PROXY
+  });
+  const allowedOrigins = parseAllowedOrigins(appEnv.CLIENT_ORIGIN);
+  const aiService = createAiService(appEnv.GEMINI_API_KEY);
 
   app.register(cors, {
     origin: (origin, cb) => {
@@ -31,36 +37,50 @@ export const buildApp = (repository: JobRepository) => {
   });
 
   app.addHook('onRequest', applySecurityHeaders);
+  app.setErrorHandler((error, _request, reply) => {
+    const statusCode = typeof (error as { statusCode?: number }).statusCode === 'number'
+      ? (error as { statusCode: number }).statusCode
+      : 500;
+    const errorMessage = error instanceof Error ? error.message : 'Request failed';
 
-  const getRequestIp = (request: { headers: Record<string, unknown>; ip?: string }) => {
-    const xff = request.headers['x-forwarded-for'];
-    if (typeof xff === 'string') {
-      return xff.split(',')[0].trim();
+    if (statusCode >= 500) {
+      app.log.error(error);
     }
-    return request.ip || 'unknown';
-  };
+
+    return reply.status(statusCode).send({
+      error: statusCode >= 500 ? 'Internal server error' : errorMessage
+    });
+  });
 
   const adminGuard = (authorization?: string) => {
+    if (!appEnv.ADMIN_TOKEN_SECRET) return false;
     if (!authorization || !authorization.startsWith('Bearer ')) return false;
     const token = authorization.slice('Bearer '.length);
-    return verifyAdminToken(token, env.ADMIN_TOKEN_SECRET);
+    return verifyAdminToken(token, appEnv.ADMIN_TOKEN_SECRET);
   };
 
   app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
 
   app.post('/auth/admin-login', async (request, reply) => {
-    const ip = getRequestIp(request);
+    const ip = request.ip;
     const limit = checkRateLimit(`admin-login:${ip}`, {
-      windowMs: env.RATE_LIMIT_WINDOW_MS,
-      maxRequests: env.RATE_LIMIT_MAX_ADMIN_LOGIN
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_ADMIN_LOGIN
     });
     if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
 
-    const body = (request.body || {}) as { password?: string };
-    if (!body.password) return badRequest(reply, 'Password required');
-    if (body.password !== env.ADMIN_PASSWORD) return unauthorized(reply, 'Invalid password');
+    if (!appEnv.ADMIN_USERNAME || !appEnv.ADMIN_PASSWORD_HASH || !appEnv.ADMIN_TOKEN_SECRET) {
+      return reply.status(503).send({ error: 'Admin auth is not configured' });
+    }
 
-    return { token: createAdminToken(env.ADMIN_TOKEN_SECRET) };
+    const body = (request.body || {}) as { username?: string; password?: string };
+    if (!body.username || !body.password) return badRequest(reply, 'Username and password required');
+    if (body.username !== appEnv.ADMIN_USERNAME) return unauthorized(reply, 'Invalid credentials');
+
+    const validPassword = await verifyAdminPassword(body.password, appEnv.ADMIN_PASSWORD_HASH);
+    if (!validPassword) return unauthorized(reply, 'Invalid credentials');
+
+    return { token: createAdminToken(appEnv.ADMIN_TOKEN_SECRET) };
   });
 
   app.post('/jobs/search', async (request, reply) => {
@@ -95,10 +115,10 @@ export const buildApp = (repository: JobRepository) => {
   });
 
   app.post('/jobs/submissions', async (request, reply) => {
-    const ip = getRequestIp(request);
+    const ip = request.ip;
     const limit = checkRateLimit(`job-submit:${ip}`, {
-      windowMs: env.RATE_LIMIT_WINDOW_MS,
-      maxRequests: env.RATE_LIMIT_MAX_SUBMIT
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_SUBMIT
     });
     if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
 
@@ -232,14 +252,14 @@ export const buildApp = (repository: JobRepository) => {
   app.post('/ai/analyze-job', async (request, reply) => {
     const body = (request.body || {}) as { description?: string };
     if (!body.description) return badRequest(reply, 'Description required');
-    const result = await analyzeJobDescription(body.description);
+    const result = await aiService.analyzeJobDescription(body.description);
     return { result };
   });
 
   app.post('/ai/parse-search', async (request, reply) => {
     const body = (request.body || {}) as { query?: string };
     if (!body.query) return badRequest(reply, 'Query required');
-    const result = await parseSearchQuery(body.query);
+    const result = await aiService.parseSearchQuery(body.query);
     return { result };
   });
 

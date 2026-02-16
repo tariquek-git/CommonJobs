@@ -4,31 +4,55 @@ import { parseEnv } from '../src/config/env.js';
 const baseEnv = {
   PORT: '4010',
   DATA_FILE: 'data/jobs.json',
+  CLICK_DATA_FILE: 'data/clicks.json',
   CLIENT_ORIGIN: 'http://localhost:5173',
   RATE_LIMIT_WINDOW_MS: '900000',
   RATE_LIMIT_MAX_SUBMIT: '20',
-  RATE_LIMIT_MAX_ADMIN_LOGIN: '30'
+  RATE_LIMIT_MAX_ADMIN_LOGIN: '30',
+  RATE_LIMIT_MAX_CLICK: '60',
+  CLICK_DEDUPE_WINDOW_MS: '60000',
+  TRUST_PROXY: 'false'
 };
 
 describe('parseEnv', () => {
-  it('rejects production config when default admin secrets are used', () => {
+  it('fails fast when required admin env vars are missing outside test mode', () => {
     expect(() =>
       parseEnv({
         ...baseEnv,
-        NODE_ENV: 'production'
+        NODE_ENV: 'development'
       })
-    ).toThrow('ADMIN_PASSWORD must be set to a non-default value in production');
+    ).toThrow('Missing required env: ADMIN_USERNAME');
   });
 
-  it('accepts production config with non-default admin secrets', () => {
+  it('accepts secure non-test configuration', () => {
     const parsed = parseEnv({
       ...baseEnv,
       NODE_ENV: 'production',
-      ADMIN_PASSWORD: 'strong-admin-password-2026',
+      ADMIN_USERNAME: 'admin',
+      ADMIN_PASSWORD_HASH: '$2b$12$8ezX6T9YdxM0n7f4Lh8R4ecTBh7vASVSI04tef7KxN6wYV6Fjt24S',
       ADMIN_TOKEN_SECRET: 'super-long-token-secret-for-production-2026'
     });
 
     expect(parsed.NODE_ENV).toBe('production');
-    expect(parsed.ADMIN_PASSWORD).toBe('strong-admin-password-2026');
+    expect(parsed.ADMIN_USERNAME).toBe('admin');
+  });
+
+  it('allows missing admin env vars in test mode', () => {
+    const parsed = parseEnv({
+      ...baseEnv,
+      NODE_ENV: 'test'
+    });
+
+    expect(parsed.NODE_ENV).toBe('test');
+  });
+
+  it('rejects invalid trust proxy values', () => {
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'test',
+        TRUST_PROXY: 'foo'
+      })
+    ).toThrow('TRUST_PROXY must be "true", "false", or a non-negative integer');
   });
 });

@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
@@ -166,14 +167,15 @@ const App: React.FC = () => {
     e.preventDefault();
     setLoginError('');
     try {
-        const success = await adminLogin(adminPassword);
+        const success = await adminLogin(adminUsername, adminPassword);
         if (success) {
             setIsAdmin(true);
             setShowAdminLogin(false);
             setCurrentView('admin');
+            setAdminUsername('admin');
             setAdminPassword('');
         } else {
-            setLoginError('Invalid password');
+            setLoginError('Invalid credentials');
         }
     } catch {
       setLoginError('Login failed');
@@ -370,6 +372,13 @@ const App: React.FC = () => {
                     </button>
                 </div>
                 <form onSubmit={handleAdminLoginSubmit}>
+                    <input 
+                        type="text" 
+                        placeholder="Username" 
+                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-3 focus:ring-1 focus:ring-blue-600 outline-none"
+                        value={adminUsername}
+                        onChange={e => setAdminUsername(e.target.value)}
+                    />
                     <input 
                         type="password" 
                         placeholder="Password" 
