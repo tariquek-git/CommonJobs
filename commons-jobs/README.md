@@ -1,78 +1,82 @@
 # Commons Jobs MVP
 
-Community-first fintech job board with:
-- Public browsing and filtering
-- Community job submissions
-- Admin moderation and editing
-- Optional AI-assisted parsing/summaries
+Public job board MVP with moderation, admin controls, and anti-abuse protections.
 
-## Stack
+## Stack and Constraints
 - Frontend: React 18 + TypeScript + Vite
-- Backend API: Fastify + TypeScript + Zod
-- Storage (MVP default): JSON file (`api/data/jobs.json`)
-- CI: GitHub Actions (`lint + typecheck + test + build`)
-- Hosting assumption:
-  - Frontend on Netlify/Vercel (static build)
-  - API on any Node host (Render/Railway/Fly/VM)
+- Backend: Fastify + TypeScript + Zod
+- Storage: File-backed JSON (`api/data/jobs.json` + `api/data/clicks.json`)
+- Auth: Admin username + bcrypt password hash + signed bearer token
+- Package manager: `npm`
+- CI: GitHub Actions (`lint`, `typecheck`, `test`, `build`)
 
-## Project Structure
+## Project Layout
 - `/Users/tarique/Documents/commons-jobs` - frontend app
 - `/Users/tarique/Documents/commons-jobs/api` - backend API
 
 ## Prerequisites
-- Node.js 20+ (Node 22 recommended)
+- Node.js 20+ (22 recommended)
 - npm 10+
 
-## Environment Variables
-
-### Frontend (`/Users/tarique/Documents/commons-jobs/.env.local`)
-```bash
-VITE_API_BASE_URL=http://localhost:4010
-```
-
-### API (`/Users/tarique/Documents/commons-jobs/api/.env`)
-Copy `/Users/tarique/Documents/commons-jobs/api/.env.example` and set values.
-
-Required for production:
-- `ADMIN_PASSWORD` must not use default value
-- `ADMIN_TOKEN_SECRET` must not use default value
-
-Optional:
-- `GEMINI_API_KEY` only if you want AI parsing/summary endpoints enabled
-
-## Run Locally
-
-1. Install frontend deps:
-```bash
-cd /Users/tarique/Documents/commons-jobs
-npm install
-```
-
-2. Install API deps:
-```bash
-cd /Users/tarique/Documents/commons-jobs/api
-npm install
-```
-
-3. Start API:
-```bash
-cd /Users/tarique/Documents/commons-jobs/api
-npm run dev
-```
-
-4. Start frontend (new terminal):
-```bash
-cd /Users/tarique/Documents/commons-jobs
-npm run dev
-```
-
-5. Open:
-- Frontend: `http://localhost:5173`
-- API health: `http://localhost:4010/health`
-
-## Test and Quality Commands
+## Environment Setup
 
 ### Frontend
+```bash
+cd /Users/tarique/Documents/commons-jobs
+cp .env.example .env.local
+```
+
+### API
+```bash
+cd /Users/tarique/Documents/commons-jobs/api
+cp .env.example .env
+```
+
+Generate admin password hash:
+```bash
+cd /Users/tarique/Documents/commons-jobs/api
+node --input-type=module -e "import bcrypt from 'bcryptjs'; const hash = await bcrypt.hash(process.argv[1], 12); console.log(hash);" "ReplaceWithStrongPassword"
+```
+
+Paste output into `ADMIN_PASSWORD_HASH` in `.env`.
+
+Important:
+- In non-test mode, API fails fast at boot if `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, or `ADMIN_TOKEN_SECRET` are missing/weak.
+- `ADMIN_TOKEN_SECRET` must be at least 32 chars.
+- `TRUST_PROXY=false` is the safe default. If deployed behind one trusted reverse proxy, set `TRUST_PROXY=1`.
+
+## Install
+Frontend:
+```bash
+cd /Users/tarique/Documents/commons-jobs
+npm install
+```
+
+API:
+```bash
+cd /Users/tarique/Documents/commons-jobs/api
+npm install
+```
+
+## Run in Development
+API:
+```bash
+cd /Users/tarique/Documents/commons-jobs/api
+npm run dev
+```
+
+Frontend (separate terminal):
+```bash
+cd /Users/tarique/Documents/commons-jobs
+npm run dev
+```
+
+URLs:
+- Frontend: `http://localhost:3000`
+- API health: `http://localhost:4010/health`
+
+## Quality Checks
+Frontend:
 ```bash
 cd /Users/tarique/Documents/commons-jobs
 npm run lint
@@ -81,23 +85,16 @@ npm run test
 npm run build
 ```
 
-### API
+API:
 ```bash
 cd /Users/tarique/Documents/commons-jobs/api
 npm run lint
+npm run typecheck
 npm run test
 npm run build
 ```
 
-## Production Build
-
-Frontend:
-```bash
-cd /Users/tarique/Documents/commons-jobs
-npm run build
-```
-Output: `/Users/tarique/Documents/commons-jobs/dist`
-
+## Production Start
 API:
 ```bash
 cd /Users/tarique/Documents/commons-jobs/api
@@ -105,29 +102,39 @@ npm run build
 npm run start
 ```
 
-## Deploy (Simple Path)
+Frontend static build:
+```bash
+cd /Users/tarique/Documents/commons-jobs
+npm run build
+```
+Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 
-1. Deploy API first and set API env vars.
-2. Confirm API health route returns `200` at `/health`.
-3. Deploy frontend using:
-   - Build command: `npm run build`
-   - Publish dir: `dist`
-4. Set frontend env var:
-   - `VITE_API_BASE_URL=https://<your-api-domain>`
-5. Redeploy frontend.
+## Deploy (Low-Cost Path)
+1. Deploy API first (Render/Railway/Fly/VM).
+2. Set API environment variables from `/Users/tarique/Documents/commons-jobs/api/.env.example`.
+3. Confirm API health endpoint:
+   - `GET https://<api-domain>/health`
+4. Deploy frontend to Netlify/Vercel:
+   - build command: `npm run build`
+   - publish directory: `dist`
+5. Set frontend env:
+   - `VITE_API_BASE_URL=https://<api-domain>`
+6. Redeploy frontend.
 
-## Smoke Test Checklist
-
-1. Browse page loads and lists jobs.
-2. Submit a new job from public form.
-3. Admin login succeeds with configured password.
-4. Admin sees pending submission and marks it `active`.
-5. Activated job appears on public feed.
-6. Job detail modal opens and apply button opens external URL.
-7. `/health` returns OK in production.
+## Post-Deploy Smoke Test Checklist
+1. Browse page loads and returns jobs.
+2. Submit form rejects invalid payload and accepts valid payload.
+3. Admin login works with configured username/password.
+4. Pending submission appears in admin dashboard.
+5. Approve submission; approved job appears in public listing.
+6. Job detail modal opens; Escape closes modal.
+7. Apply action opens external link in new tab.
+8. Active job clicks increment; non-active job clicks return not found.
+9. `/health` returns `{ ok: true }`.
 
 ## Security Notes
-- Admin routes require bearer token from login endpoint.
-- Public submission endpoint has rate limiting + honeypot field check.
-- URL/text/tag inputs are sanitized server-side.
-- API enforces non-default admin secrets in production.
+- No default secrets or credentials in runtime config.
+- Backend enforces server-side validation/sanitization.
+- Public submission/login/click endpoints are rate limited.
+- Rate limiting uses `request.ip`; app never reads raw `x-forwarded-for`.
+- CORS allow-list comes from `CLIENT_ORIGIN`.
