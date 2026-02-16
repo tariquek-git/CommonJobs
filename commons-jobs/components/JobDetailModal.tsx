@@ -1,8 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { JobPosting } from '../types';
 import { trackClick } from '../services/jobService';
 import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap } from 'lucide-react';
+import { getPostedDateLabel } from '../utils/dateLabel';
 
 interface JobDetailModalProps {
   job: JobPosting;
@@ -11,14 +12,22 @@ interface JobDetailModalProps {
 
 const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
   const [imgError, setImgError] = useState(false);
+  const titleId = useId();
 
   useEffect(() => {
     // Prevent background scrolling when modal is open
     document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = 'unset';
+      window.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   const handleApply = () => {
     trackClick(job.id);
@@ -28,14 +37,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
         targetUrl = `https://${targetUrl}`;
     }
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const getDaysLabel = (dateString: string) => {
-    const diffTime = Math.abs(new Date().getTime() - new Date(dateString).getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    return `${diffDays} days ago`;
   };
 
   const getLogoUrl = () => {
@@ -61,7 +62,12 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-2xl bg-white rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-slide-up overflow-hidden">
+      <div
+        className="relative w-full max-w-2xl bg-white rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-slide-up overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
         
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex items-start gap-4 sticky top-0 bg-white z-10">
@@ -80,7 +86,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
            <div className="flex-1 min-w-0">
               <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight mb-1">{job.roleTitle}</h2>
+                    <h2 id={titleId} className="text-xl md:text-2xl font-bold text-gray-900 leading-tight mb-1">{job.roleTitle}</h2>
                     <div className="flex items-center gap-2 text-gray-600 font-medium">
                         {job.companyName}
                         {job.isVerified && (
@@ -90,7 +96,11 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                         )}
                     </div>
                   </div>
-                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors">
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-600 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    aria-label="Close job details"
+                  >
                       <X size={20} />
                   </button>
               </div>
@@ -118,9 +128,9 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                         {job.currency || 'USD'} {job.salaryRange}
                     </div>
                  )}
-                 <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100 text-sm font-medium text-gray-700">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100 text-sm font-medium text-gray-700">
                     <Clock size={16} className="text-gray-400" />
-                    Posted {getDaysLabel(job.postedDate)}
+                    Posted {getPostedDateLabel(job.postedDate)}
                  </div>
             </div>
 
@@ -166,7 +176,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
             </div>
             <button 
                 onClick={handleApply}
-                className="w-full md:w-auto flex-1 md:flex-none px-6 py-3.5 bg-gray-900 hover:bg-blue-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+                className="w-full md:w-auto flex-1 md:flex-none px-6 py-3.5 bg-gray-900 hover:bg-blue-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
                 Apply on Company Site 
                 <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>

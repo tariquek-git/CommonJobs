@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { JobPosting } from '../types';
 import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot } from 'lucide-react';
+import { getPostedAgeDays, getPostedDateLabel } from '../utils/dateLabel';
 
 interface JobCardProps {
   job: JobPosting;
@@ -10,14 +11,6 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
   const [imgError, setImgError] = useState(false);
-
-  const getDaysLabel = (dateString: string) => {
-    const diffTime = Math.abs(new Date().getTime() - new Date(dateString).getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    if (diffDays === 0) return { text: 'Today', days: 0 };
-    if (diffDays === 1) return { text: 'Yesterday', days: 1 };
-    return { text: `${diffDays} days ago`, days: diffDays };
-  };
 
   const getLocationString = () => {
     const parts = [];
@@ -40,18 +33,24 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
     }
   };
 
-  const { text: dateLabel, days } = getDaysLabel(job.postedDate);
-  const isHot = days <= 5;
+  const dateLabel = getPostedDateLabel(job.postedDate);
+  const days = getPostedAgeDays(job.postedDate);
+  const isHot = typeof days === 'number' && days <= 5;
   const isAggregated = job.sourceType === 'Aggregated';
   const logoUrl = getLogoUrl();
 
   return (
-    <div 
-      onClick={onClick}
+    <article
       className={`group bg-white rounded-xl border p-6 flex flex-col h-full transition-all duration-200 hover:shadow-md relative cursor-pointer ${
           isAggregated ? 'border-blue-100 hover:border-blue-300' : 'border-gray-200 hover:border-blue-300'
       }`}
     >
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 rounded-lg"
+        aria-label={`Open job details for ${job.roleTitle} at ${job.companyName}`}
+      >
       
       {/* Top: Logo & Meta */}
       <div className="mb-4 flex items-start justify-between">
@@ -135,13 +134,15 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
         </div>
 
         {/* Visual Button - Click actually bubbles to container */}
-        <button 
+        <span
           className="px-4 py-2.5 bg-gray-900 group-hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-all shadow-sm flex items-center gap-2 shrink-0"
+          aria-hidden="true"
         >
           Apply <ArrowUpRight size={16} />
-        </button>
+        </span>
       </div>
-    </div>
+      </button>
+    </article>
   );
 };
 
