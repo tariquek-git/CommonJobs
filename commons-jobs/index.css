@@ -1,0 +1,32 @@
+/*
+  Lightweight global CSS.
+  This file exists so the HTML link tag resolves at build/runtime.
+
+  We also define a couple of utility classes that the Tailwind CDN build
+  doesn't ship by default (they're typically provided by plugins).
+*/
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin; /* Firefox */
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thumb-gray-200::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb; /* gray-200 */
+  border-radius: 9999px;
+}
+
+.scrollbar-thumb-gray-200::-webkit-scrollbar-track {
+  background: transparent;
+}
