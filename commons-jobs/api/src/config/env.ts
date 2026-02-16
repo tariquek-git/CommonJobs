@@ -21,8 +21,13 @@ const parseTrustProxy = (value: string): boolean | number => {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(4010),
+  STORAGE_PROVIDER: z.enum(['file', 'supabase']).default('file'),
   DATA_FILE: z.string().default('data/jobs.json'),
   CLICK_DATA_FILE: z.string().default('data/clicks.json'),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().trim().min(1).optional(),
+  SUPABASE_JOBS_TABLE: z.string().trim().min(1).default('job_board_jobs'),
+  SUPABASE_CLICKS_TABLE: z.string().trim().min(1).default('job_board_clicks'),
   CLIENT_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3010,http://localhost:5173'),
   ADMIN_USERNAME: z.string().trim().min(3).optional(),
   ADMIN_PASSWORD_HASH: z.string().trim().optional(),
@@ -41,6 +46,15 @@ export type AppEnv = z.infer<typeof envSchema>;
 export const parseEnv = (input: NodeJS.ProcessEnv): AppEnv => {
   const parsed = envSchema.parse(input);
   const isTest = parsed.NODE_ENV === 'test';
+
+  if (parsed.STORAGE_PROVIDER === 'supabase') {
+    if (!parsed.SUPABASE_URL) {
+      throw new Error('Missing required env for Supabase storage: SUPABASE_URL');
+    }
+    if (!parsed.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing required env for Supabase storage: SUPABASE_SERVICE_ROLE_KEY');
+    }
+  }
 
   if (!isTest) {
     if (!parsed.ADMIN_USERNAME) {
