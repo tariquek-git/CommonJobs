@@ -46,6 +46,7 @@ const AdminDashboard: React.FC = () => {
       return (
           <div className="max-w-3xl mx-auto">
               <button 
+                type="button"
                 onClick={() => {
                     setEditingJob(null);
                     setIsCreatingJob(false);
@@ -82,6 +83,7 @@ const AdminDashboard: React.FC = () => {
            <h1 className="text-xl font-bold text-gray-900">Intelligence Console</h1>
            <div className="flex items-center gap-2">
              <button
+               type="button"
                onClick={() => setIsCreatingJob(true)}
                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors"
              >
@@ -90,6 +92,7 @@ const AdminDashboard: React.FC = () => {
              <div className="flex bg-white rounded-lg border border-gray-200 p-1">
                  {(['all', 'pending', 'active', 'rejected', 'archived'] as const).map(f => (
                    <button
+                     type="button"
                      key={f}
                      onClick={() => setFilter(f)}
                      className={`px-3 py-1 text-xs font-bold rounded capitalize ${
@@ -106,6 +109,7 @@ const AdminDashboard: React.FC = () => {
       <div className="flex items-center gap-2 mb-4">
           {(['all', 'Direct', 'Aggregated'] as const).map(source => (
             <button
+              type="button"
               key={source}
               onClick={() => setSourceFilter(source)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
@@ -165,9 +169,21 @@ const AdminDashboard: React.FC = () => {
                       </select>
                   </td>
                   <td className="px-6 py-3 text-right">
-                    <button onClick={() => setEditingJob(job)} className="text-gray-400 hover:text-blue-600 mr-3"><Pencil size={16}/></button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingJob(job)}
+                      className="text-gray-400 hover:text-blue-600 mr-3"
+                      aria-label={`Edit ${job.roleTitle}`}
+                    >
+                      <Pencil size={16}/>
+                    </button>
                     {job.status !== 'archived' && (
-                      <button onClick={() => handleArchive(job.id)} className="text-gray-400 hover:text-red-600">
+                      <button
+                        type="button"
+                        onClick={() => handleArchive(job.id)}
+                        className="text-gray-400 hover:text-red-600"
+                        aria-label={`Archive ${job.roleTitle}`}
+                      >
                         <Archive size={16}/>
                       </button>
                     )}

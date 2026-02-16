@@ -30,6 +30,7 @@ const FilterGroup = <T extends string>({
           const isActive = selected.includes(opt);
           return (
             <button
+              type="button"
               key={opt}
               onClick={() => onToggle(filterKey, opt)}
               className={`
@@ -105,6 +106,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({ filters, setFilters }) => {
         
         {hasFilters && (
             <button 
+                type="button"
                 onClick={clearFilters}
                 className="text-xs font-bold text-gray-400 hover:text-red-600 flex items-center gap-1"
             >

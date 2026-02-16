@@ -32,6 +32,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => setCurrentView('browse')}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
               currentView === 'browse' 
@@ -43,6 +44,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
           </button>
           
           <button
+            type="button"
             onClick={() => setCurrentView('submit')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
               currentView === 'submit' 

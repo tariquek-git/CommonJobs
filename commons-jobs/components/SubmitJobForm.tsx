@@ -238,6 +238,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     : (isAdminMode ? 'The posting has been added to the board.' : 'Your post is now in the review queue.')}
               </p>
               <button 
+                type="button"
                 onClick={isEditing ? onSuccess : () => { 
                     setIsSubmitted(false); 
                     setFormData(getInitialState(defaultSourceType)); 
@@ -260,7 +261,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 w-[90%] md:w-auto animate-fade-in">
             <AlertCircle size={18} className="text-yellow-400 shrink-0" />
             <div className="text-sm font-medium">Auto-fill blocked by host. Please paste JD below.</div>
-            <button onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300"><X size={16} /></button>
+            <button type="button" onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300" aria-label="Close message"><X size={16} /></button>
         </div>
       )}
 

@@ -25,6 +25,10 @@ Public job board MVP with moderation, admin controls, and anti-abuse protections
 cd /Users/tarique/Documents/commons-jobs
 cp .env.example .env.local
 ```
+Notes:
+- `VITE_API_BASE_URL` now defaults to `/api`.
+- In local dev, Vite proxies `/api` to `http://127.0.0.1:4010` (configured in `/Users/tarique/Documents/commons-jobs/vite.config.ts`).
+- Set `VITE_API_BASE_URL` explicitly only when frontend and API are on different domains in production.
 
 ### API
 ```bash
@@ -74,6 +78,7 @@ npm run dev
 URLs:
 - Frontend: `http://localhost:3000`
 - API health: `http://localhost:4010/health`
+- Frontend proxied API health: `http://localhost:3000/api/health`
 
 ## Quality Checks
 Frontend:

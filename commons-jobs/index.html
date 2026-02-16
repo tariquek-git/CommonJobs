@@ -13,62 +13,14 @@
     <meta name="twitter:title" content="Commons Jobs | Fintech Commons" />
     <meta name="twitter:description" content="Community-first fintech and banking jobs with moderation and transparent sourcing." />
     <meta name="twitter:image" content="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              gray: {
-                50: '#F9FAFB',
-                100: '#F3F4F6',
-                200: '#E5E7EB',
-                300: '#D1D5DB',
-                400: '#9CA3AF',
-                500: '#6B7280',
-                600: '#4B5563',
-                700: '#374151',
-                800: '#1F2937',
-                900: '#111827',
-              },
-              blue: {
-                600: '#2563EB', // Royal Blue
-                700: '#1D4ED8',
-              }
-            },
-            fontFamily: {
-              sans: ['Inter', 'system-ui', 'sans-serif'],
-            },
-            animation: {
-                'fade-in': 'fadeIn 0.2s ease-out',
-                'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            },
-            keyframes: {
-                fadeIn: {
-                    '0%': { opacity: '0' },
-                    '100%': { opacity: '1' },
-                },
-                slideUp: {
-                    '0%': { transform: 'translateY(10px)', opacity: '0' },
-                    '100%': { transform: 'translateY(0)', opacity: '1' },
-                }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #F3F4F6; /* Gray-100 */
-        color: #111827; /* Gray-900 */
-      }
-    </style>
-<link rel="stylesheet" href="/index.css">
-</head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/index.css" />
+  </head>
   <body class="tracking-tight antialiased selection:bg-blue-100 selection:text-blue-900">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>

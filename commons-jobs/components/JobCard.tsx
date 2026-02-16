@@ -3,13 +3,14 @@ import React, { useState } from 'react';
 import { JobPosting } from '../types';
 import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot } from 'lucide-react';
 import { getPostedAgeDays, getPostedDateLabel } from '../utils/dateLabel';
+import { getCompanyLogoUrl } from '../utils/companyLogo';
 
 interface JobCardProps {
   job: JobPosting;
-  onClick: () => void;
+  onSelect: (job: JobPosting) => void;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
+const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const [imgError, setImgError] = useState(false);
 
   const getLocationString = () => {
@@ -20,24 +21,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
     return parts.join(', ');
   };
 
-  const getLogoUrl = () => {
-    const targetUrl = job.companyWebsite || job.externalLink;
-    if (!targetUrl) return null;
-    try {
-      // Ensure protocol is present
-      const urlStr = targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`;
-      const hostname = new URL(urlStr).hostname;
-      return `https://logo.clearbit.com/${hostname}`;
-    } catch {
-      return null;
-    }
-  };
-
   const dateLabel = getPostedDateLabel(job.postedDate);
   const days = getPostedAgeDays(job.postedDate);
   const isHot = typeof days === 'number' && days <= 5;
   const isAggregated = job.sourceType === 'Aggregated';
-  const logoUrl = getLogoUrl();
+  const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
 
   return (
     <article
@@ -47,7 +35,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
     >
       <button
         type="button"
-        onClick={onClick}
+        onClick={() => onSelect(job)}
         className="w-full h-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 rounded-lg"
         aria-label={`Open job details for ${job.roleTitle} at ${job.companyName}`}
       >
@@ -65,6 +53,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
                 alt={`${job.companyName} logo`} 
                 className="w-full h-full object-contain relative z-10 bg-white"
                 onError={() => setImgError(true)}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
                />
              )}
         </div>
@@ -146,4 +137,4 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick }) => {
   );
 };
 
-export default JobCard;
+export default React.memo(JobCard);

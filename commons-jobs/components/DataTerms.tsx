@@ -9,6 +9,7 @@ const DataTerms: React.FC<PageProps> = ({ onBack }) => {
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-8 md:p-12 animate-fade-in">
       <button 
+        type="button"
         onClick={onBack}
         className="mb-8 flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors"
       >

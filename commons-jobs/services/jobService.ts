@@ -1,11 +1,19 @@
 import { JobPosting, JobFilterState, JobStatus } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4010';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const ADMIN_TOKEN_KEY = 'commons_jobs_admin_token';
+const JOB_SEARCH_CACHE_TTL_MS = 15_000;
+
+type FeedType = 'direct' | 'aggregated';
+type CacheEntry = { at: number; jobs: JobPosting[] };
 
 const getToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
 const setToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
 const clearToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
+const jobSearchCache = new Map<string, CacheEntry>();
+
+const buildJobsCacheKey = (filters: JobFilterState, feedType: FeedType): string =>
+  JSON.stringify({ filters, feedType });
 
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -55,13 +63,29 @@ export const getJobById = async (id: string): Promise<JobPosting | undefined> =>
   }
 };
 
-export const getJobs = async (filters: JobFilterState, feedType: 'direct' | 'aggregated'): Promise<JobPosting[]> => {
+export const getJobs = async (
+  filters: JobFilterState,
+  feedType: FeedType,
+  signal?: AbortSignal
+): Promise<JobPosting[]> => {
+  const cacheKey = buildJobsCacheKey(filters, feedType);
+  const cached = jobSearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < JOB_SEARCH_CACHE_TTL_MS) {
+    return cached.jobs;
+  }
+
   const data = await apiFetch<{ jobs: JobPosting[] }>('/jobs/search', {
     method: 'POST',
-    body: JSON.stringify({ filters, feedType })
+    body: JSON.stringify({ filters, feedType }),
+    signal
   });
 
+  jobSearchCache.set(cacheKey, { at: Date.now(), jobs: data.jobs });
   return data.jobs;
+};
+
+export const __clearJobSearchCacheForTests = (): void => {
+  jobSearchCache.clear();
 };
 
 type NewJobPayload =
@@ -74,6 +98,7 @@ export const submitJob = async (jobData: NewJobPayload): Promise<boolean> => {
     body: JSON.stringify(jobData)
   });
 
+  jobSearchCache.clear();
   return true;
 };
 
@@ -84,13 +109,15 @@ export const createAdminJob = async (jobData: NewJobPayload): Promise<boolean> =
     body: JSON.stringify(jobData)
   });
 
+  jobSearchCache.clear();
   return true;
 };
 
 export const trackClick = (id: string) => {
   // Intentionally fire-and-forget for UX responsiveness.
   void fetch(`${API_BASE_URL}/jobs/${id}/click`, {
-    method: 'POST'
+    method: 'POST',
+    keepalive: true
   });
 };
 
@@ -129,6 +156,7 @@ export const updateJobStatus = async (id: string, status: JobStatus): Promise<vo
     headers: adminHeaders(),
     body: JSON.stringify({ status })
   });
+  jobSearchCache.clear();
 };
 
 export const updateJob = async (updatedJob: JobPosting): Promise<void> => {
@@ -137,6 +165,7 @@ export const updateJob = async (updatedJob: JobPosting): Promise<void> => {
     headers: adminHeaders(),
     body: JSON.stringify(updatedJob)
   });
+  jobSearchCache.clear();
 };
 
 export const deleteJob = async (id: string): Promise<void> => {

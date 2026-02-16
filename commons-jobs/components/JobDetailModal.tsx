@@ -4,6 +4,7 @@ import { JobPosting } from '../types';
 import { trackClick } from '../services/jobService';
 import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap } from 'lucide-react';
 import { getPostedDateLabel } from '../utils/dateLabel';
+import { getCompanyLogoUrl } from '../utils/companyLogo';
 
 interface JobDetailModalProps {
   job: JobPosting;
@@ -39,19 +40,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const getLogoUrl = () => {
-    const targetUrl = job.companyWebsite || job.externalLink;
-    if (!targetUrl) return null;
-    try {
-      const urlStr = targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`;
-      const hostname = new URL(urlStr).hostname;
-      return `https://logo.clearbit.com/${hostname}`;
-    } catch {
-      return null;
-    }
-  };
-
-  const logoUrl = getLogoUrl();
+  const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-center items-end md:items-center sm:p-4">
@@ -79,6 +68,9 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                   alt={`${job.companyName} logo`} 
                   className="w-full h-full object-contain relative z-10 bg-white"
                   onError={() => setImgError(true)}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
                />
              )}
            </div>
@@ -97,6 +89,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={onClose}
                     className="text-gray-400 hover:text-gray-600 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     aria-label="Close job details"
@@ -175,6 +168,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                 via {job.externalSource || 'Direct'}
             </div>
             <button 
+                type="button"
                 onClick={handleApply}
                 className="w-full md:w-auto flex-1 md:flex-none px-6 py-3.5 bg-gray-900 hover:bg-blue-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
