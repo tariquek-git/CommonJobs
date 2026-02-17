@@ -26,5 +26,28 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "App.tsx",
+    "index.tsx",
+    "vercel-api.ts",
+    "types.ts",
+    "constants.ts",
+    "siteConfig.ts",
+    "components/**/*",
+    "services/**/*",
+    "utils/**/*",
+    "tests/**/*",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "eslint.config.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "output",
+    "FOF-finflow-architect",
+    "api/node_modules",
+    "api/dist"
+  ]
 }
