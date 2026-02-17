@@ -46,6 +46,7 @@ export type AppEnv = z.infer<typeof envSchema>;
 export const parseEnv = (input: NodeJS.ProcessEnv): AppEnv => {
   const parsed = envSchema.parse(input);
   const isTest = parsed.NODE_ENV === 'test';
+  const isProduction = parsed.NODE_ENV === 'production';
 
   if (parsed.STORAGE_PROVIDER === 'supabase') {
     if (!parsed.SUPABASE_URL) {
@@ -54,6 +55,10 @@ export const parseEnv = (input: NodeJS.ProcessEnv): AppEnv => {
     if (!parsed.SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Missing required env for Supabase storage: SUPABASE_SERVICE_ROLE_KEY');
     }
+  }
+
+  if (isProduction && parsed.STORAGE_PROVIDER !== 'supabase') {
+    throw new Error('STORAGE_PROVIDER must be "supabase" in production');
   }
 
   if (!isTest) {

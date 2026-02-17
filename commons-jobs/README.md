@@ -4,15 +4,16 @@ Public job board MVP with moderation, admin controls, and anti-abuse protections
 
 ## Stack and Constraints
 - Frontend: React 18 + TypeScript + Vite
-- Backend: Fastify + TypeScript + Zod
-- Storage: File-backed JSON by default, optional Supabase (`STORAGE_PROVIDER=supabase`)
+- Backend: Fastify + TypeScript + Zod (served as a Vercel serverless function via `/api/*`)
+- Storage: Supabase recommended for deployment (`STORAGE_PROVIDER=supabase`)
 - Auth: Admin username + bcrypt password hash + signed bearer token
 - Package manager: `npm`
 - CI: GitHub Actions (`lint`, `typecheck`, `test`, `build`)
 
 ## Project Layout
 - `/Users/tarique/Documents/commons-jobs` - frontend app
-- `/Users/tarique/Documents/commons-jobs/api` - backend API
+- `/Users/tarique/Documents/commons-jobs/api` - backend domain logic and tests
+- `/Users/tarique/Documents/commons-jobs/vercel-api.ts` - Vercel serverless entrypoint
 
 ## Prerequisites
 - Node.js 20+ (22 recommended)
@@ -62,6 +63,8 @@ Important:
 - `ADMIN_TOKEN_SECRET` must be at least 32 chars.
 - `TRUST_PROXY=false` is the safe default. If deployed behind one trusted reverse proxy, set `TRUST_PROXY=1`.
 - If `STORAGE_PROVIDER=supabase`, API fails fast unless `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set.
+- Production mode rejects `STORAGE_PROVIDER=file` to prevent ephemeral data loss.
+- On Vercel, set `STORAGE_PROVIDER=supabase` (file storage is ephemeral on serverless).
 
 ## Install
 Frontend:
@@ -113,33 +116,36 @@ npm run test
 npm run build
 ```
 
-## Production Start
-API:
-```bash
-cd /Users/tarique/Documents/commons-jobs/api
-npm run build
-npm run start
-```
-
-Frontend static build:
+## Production Build (Local)
 ```bash
 cd /Users/tarique/Documents/commons-jobs
 npm run build
 ```
 Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 
-## Deploy (Low-Cost Path)
-1. Deploy API first (Render/Railway/Fly/VM).
-2. Set API environment variables from `/Users/tarique/Documents/commons-jobs/api/.env.example`.
-3. For Supabase persistence, set `STORAGE_PROVIDER=supabase` and run migration `/Users/tarique/Documents/commons-jobs/api/supabase/migrations/20260216_job_board_storage.sql`.
-4. Confirm API health endpoint:
-   - `GET https://<api-domain>/health`
-5. Deploy frontend to Netlify/Vercel:
-   - build command: `npm run build`
-   - publish directory: `dist`
-6. Set frontend env:
-   - `VITE_API_BASE_URL=https://<api-domain>`
-7. Redeploy frontend.
+## Deploy (Vercel-Only + Supabase)
+1. In Supabase SQL Editor, run:
+   - `/Users/tarique/Documents/commons-jobs/api/supabase/migrations/20260216_job_board_storage.sql`
+2. In Vercel, import the repo and set Root Directory to:
+   - `commons-jobs`
+3. Build settings:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+4. Add Vercel environment variables:
+   - `STORAGE_PROVIDER=supabase`
+   - `SUPABASE_URL=https://<your-project>.supabase.co`
+   - `SUPABASE_SERVICE_ROLE_KEY=<service-role-key>`
+   - `SUPABASE_JOBS_TABLE=job_board_jobs`
+   - `SUPABASE_CLICKS_TABLE=job_board_clicks`
+   - `ADMIN_USERNAME=<admin-username>`
+   - `ADMIN_PASSWORD_HASH=<bcrypt-hash>`
+   - `ADMIN_TOKEN_SECRET=<at-least-32-char-secret>`
+   - `CLIENT_ORIGIN=https://<your-vercel-domain>.vercel.app`
+   - `TRUST_PROXY=1`
+5. Optional frontend env:
+   - `VITE_API_BASE_URL=/api` (default already uses `/api`)
+6. Deploy and verify API health:
+   - `GET https://<your-vercel-domain>.vercel.app/api/health`
 
 ## Post-Deploy Smoke Test Checklist
 1. Browse page loads and returns jobs.
@@ -150,7 +156,7 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 6. Job detail modal opens; Escape closes modal.
 7. Apply action opens external link in new tab.
 8. Active job clicks increment; non-active job clicks return not found.
-9. `/health` returns `{ ok: true }`.
+9. `/api/health` returns `{ ok: true }`.
 
 ## Security Notes
 - No default secrets or credentials in runtime config.

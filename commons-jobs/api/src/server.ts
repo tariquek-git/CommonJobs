@@ -1,10 +1,6 @@
-import { buildApp } from './app.js';
-import { parseEnv } from './config/env.js';
-import { createRepositories } from './storage/repositoryFactory.js';
+import { createRuntimeContext } from './runtime.js';
 
-const env = parseEnv(process.env);
-const { provider, repository, clickRepository } = createRepositories(env);
-const app = buildApp(repository, clickRepository, env);
+const { app, env, provider } = createRuntimeContext(process.env);
 
 const start = async () => {
   try {

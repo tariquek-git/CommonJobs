@@ -31,6 +31,9 @@ describe('parseEnv', () => {
     const parsed = parseEnv({
       ...baseEnv,
       NODE_ENV: 'production',
+      STORAGE_PROVIDER: 'supabase',
+      SUPABASE_URL: 'https://example.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
       ADMIN_USERNAME: 'admin',
       ADMIN_PASSWORD_HASH: '$2b$12$8ezX6T9YdxM0n7f4Lh8R4ecTBh7vASVSI04tef7KxN6wYV6Fjt24S',
       ADMIN_TOKEN_SECRET: 'super-long-token-secret-for-production-2026'
@@ -85,5 +88,18 @@ describe('parseEnv', () => {
         ADMIN_TOKEN_SECRET: 'super-long-token-secret-for-production-2026'
       })
     ).toThrow('Missing required env for Supabase storage: SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('rejects file storage in production mode', () => {
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'production',
+        STORAGE_PROVIDER: 'file',
+        ADMIN_USERNAME: 'admin',
+        ADMIN_PASSWORD_HASH: '$2b$12$8ezX6T9YdxM0n7f4Lh8R4ecTBh7vASVSI04tef7KxN6wYV6Fjt24S',
+        ADMIN_TOKEN_SECRET: 'super-long-token-secret-for-production-2026'
+      })
+    ).toThrow('STORAGE_PROVIDER must be "supabase" in production');
   });
 });
