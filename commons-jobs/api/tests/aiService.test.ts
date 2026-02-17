@@ -27,4 +27,16 @@ describe('createAiService', () => {
     const call = generateContentMock.mock.calls[0]?.[0] as { model?: string };
     expect(call.model).toBe('gemini-flash-latest');
   });
+
+  it('parses JSON even if wrapped with extra text', async () => {
+    generateContentMock.mockResolvedValueOnce({
+      text: 'Here you go:\\n```json\\n{\"keyword\":\"backend\",\"remotePolicies\":[\"Remote\"]}\\n```'
+    });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest');
+    const result = await service.parseSearchQuery('remote backend');
+
+    expect(result).toEqual({ keyword: 'backend', remotePolicies: ['Remote'] });
+  });
 });

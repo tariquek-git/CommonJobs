@@ -2,6 +2,24 @@ import { GoogleGenAI, Type } from '@google/genai';
 export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
+  const safeJsonParse = <T>(text: string): T | null => {
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // Some models occasionally wrap JSON in prose or markdown despite mime/schema hints.
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(text.slice(start, end + 1)) as T;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  };
+
   const analyzeJobDescription = async (description: string) => {
     if (!ai || !description.trim()) return null;
 
@@ -32,7 +50,7 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
       });
 
       if (!response.text) return null;
-      return JSON.parse(response.text);
+      return safeJsonParse(response.text);
     } catch {
       return null;
     }
@@ -44,7 +62,17 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
     try {
       const response = await ai.models.generateContent({
         model,
-        contents: `Translate this job search query to filter JSON: ${query}`,
+        contents: [
+          'Translate this job search query into filter JSON.',
+          'Return JSON only (no markdown).',
+          'Use these enums:',
+          '- dateRange: "all" | "24h" | "7d" | "30d"',
+          '- remotePolicies: ["Onsite" | "Hybrid" | "Remote"]',
+          '- employmentTypes: ["Full-time" | "Contract" | "Internship"]',
+          '- seniorityLevels: ["Junior" | "Mid-Level" | "Senior" | "Lead" | "Executive"]',
+          '',
+          `Query: ${query}`
+        ].join('\n'),
         config: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -61,7 +89,7 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
       });
 
       if (!response.text) return null;
-      return JSON.parse(response.text);
+      return safeJsonParse(response.text);
     } catch {
       return null;
     }
