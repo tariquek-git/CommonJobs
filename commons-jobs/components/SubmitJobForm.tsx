@@ -192,6 +192,17 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		      remotePolicy: rawRemotePolicy,
 		      ...rest
 		    } = data;
+		    // Guard against AI returning `null`, objects, etc. React inputs treat `null` oddly (can render "null").
+		    const safeRest: Record<string, unknown> = {};
+		    for (const [key, value] of Object.entries(rest)) {
+		      if (typeof value === 'string') {
+		        safeRest[key] = value;
+		        continue;
+		      }
+		      if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
+		        safeRest[key] = value;
+		      }
+		    }
 		    let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
 		    let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
 		    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
@@ -230,7 +241,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	    }
 
 		    return {
-		      ...rest,
+		      ...safeRest,
 		      locationCountry,
 		      remotePolicy,
 		      employmentType: normalizedEmploymentType || undefined,
