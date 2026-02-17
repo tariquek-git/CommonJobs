@@ -254,44 +254,83 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
   };
 
-	  const handleSubmit = async (e: React.FormEvent) => {
-	    e.preventDefault();
-	    const submitterRequiredMissing = !isAdminMode && (!submitterName || !submitterEmail);
-	    
-	    if (!formData.companyName || 
-	        !formData.roleTitle || 
-	        !formData.externalLink || 
-	        !formData.locationCountry || 
-	        !formData.locationCity ||
-	        submitterRequiredMissing) {
-	      setError('Please fill in all mandatory fields.');
-	      scrollToTop();
-	      // Focus error for keyboard/screen reader users.
-	      setTimeout(() => errorRef.current?.focus(), 0);
-	      return;
-	    }
+  const sanitizePayloadForSubmit = (payload: Partial<JobPosting>): Partial<JobPosting> => {
+    const cleaned: Record<string, unknown> = { ...payload };
+    for (const [key, value] of Object.entries(cleaned)) {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        cleaned[key] = trimmed;
+        if (trimmed === '' && key !== 'companyWebsite') {
+          delete cleaned[key];
+        }
+      }
+    }
 
-	    setIsSubmitting(true);
-	    try {
+    // Optional enums: only include if they match the known values.
+    if (cleaned.remotePolicy && !Object.values(RemotePolicy).includes(cleaned.remotePolicy as RemotePolicy)) {
+      delete cleaned.remotePolicy;
+    }
+    if (cleaned.employmentType && !Object.values(EmploymentType).includes(cleaned.employmentType as EmploymentType)) {
+      delete cleaned.employmentType;
+    }
+    if (cleaned.seniority && !Object.values(SeniorityLevel).includes(cleaned.seniority as SeniorityLevel)) {
+      delete cleaned.seniority;
+    }
+
+    // Tags must be a string[] (empty arrays are fine but don't add value).
+    if (cleaned.tags && !Array.isArray(cleaned.tags)) {
+      delete cleaned.tags;
+    }
+    if (Array.isArray(cleaned.tags) && cleaned.tags.length === 0) {
+      delete cleaned.tags;
+    }
+
+    return cleaned as Partial<JobPosting>;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedSubmitterName = submitterName.trim();
+    const trimmedSubmitterEmail = submitterEmail.trim();
+    const trimmedExternalLink = (formData.externalLink || '').trim();
+    const submitterRequiredMissing = !isAdminMode && (!trimmedSubmitterName || !trimmedSubmitterEmail);
+    
+    if (!formData.companyName?.trim() || 
+        !formData.roleTitle?.trim() || 
+        !trimmedExternalLink || 
+        !formData.locationCountry || 
+        !formData.locationCity?.trim() ||
+        submitterRequiredMissing) {
+      setError('Please fill in all mandatory fields.');
+      scrollToTop();
+      // Focus error for keyboard/screen reader users.
+      setTimeout(() => errorRef.current?.focus(), 0);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
       const payload: Partial<JobPosting> = {
         ...formData,
+        externalLink: trimmedExternalLink,
         sourceType: formData.sourceType || 'Direct',
         status: formData.status || (formData.sourceType === 'Aggregated' ? 'active' : 'pending')
       };
 
-      if (submitterName) payload.submitterName = submitterName;
-      if (submitterEmail) payload.submitterEmail = submitterEmail;
+      if (trimmedSubmitterName) payload.submitterName = trimmedSubmitterName;
+      if (trimmedSubmitterEmail) payload.submitterEmail = trimmedSubmitterEmail;
+      const sanitizedPayload = sanitizePayloadForSubmit(payload);
       
-	      let newJobId: string | null = null;
-	      if (isEditing && initialData) {
-	        await updateJob({ ...initialData, ...payload } as JobPosting);
-	        newJobId = initialData.id;
-	      } else if (isAdminMode) {
-	        const job = await createAdminJob(payload as Parameters<typeof createAdminJob>[0]);
-	        newJobId = job?.id || null;
-	      } else {
-	        newJobId = await submitJob(payload as Parameters<typeof submitJob>[0]);
-	      }
+      let newJobId: string | null = null;
+      if (isEditing && initialData) {
+        await updateJob({ ...initialData, ...sanitizedPayload } as JobPosting);
+        newJobId = initialData.id;
+      } else if (isAdminMode) {
+        const job = await createAdminJob(sanitizedPayload as Parameters<typeof createAdminJob>[0]);
+        newJobId = job?.id || null;
+      } else {
+        newJobId = await submitJob(sanitizedPayload as Parameters<typeof submitJob>[0]);
+      }
 	      
 	      setSubmittedJobId(newJobId);
 	      setIsSubmitted(true);

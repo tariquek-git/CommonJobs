@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../services/geminiService', () => ({
   analyzeJobDescription: vi.fn().mockResolvedValue(null)
@@ -18,6 +18,11 @@ vi.mock('../services/jobService', () => ({
 describe('SubmitJobForm', () => {
   beforeEach(() => {
     vi.stubGlobal('scrollTo', vi.fn());
+  });
+
+  afterEach(() => {
+    cleanup();
+    submitJobMock.mockReset();
   });
 
   it('shows a success confirmation with a reference id after submission', async () => {
@@ -94,5 +99,27 @@ describe('SubmitJobForm', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Rate limited');
+  });
+
+  it('trims submitter fields before sending to the API', async () => {
+    submitJobMock.mockResolvedValueOnce('job-123');
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/link to apply/i), { target: { value: '  https://example.com/apply  ' } });
+    fireEvent.change(screen.getByLabelText(/role title/i), { target: { value: 'Backend Engineer' } });
+    fireEvent.change(screen.getByLabelText(/company name/i), { target: { value: 'Test Co' } });
+    fireEvent.change(screen.getByLabelText(/country/i), { target: { value: 'Canada' } });
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Toronto' } });
+    fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: '  Alice  ' } });
+    fireEvent.change(screen.getByLabelText(/your email/i), { target: { value: '  alice@example.com  ' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
+
+    await waitFor(() => expect(submitJobMock).toHaveBeenCalledTimes(1));
+    const firstArg = submitJobMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(firstArg.externalLink).toBe('https://example.com/apply');
+    expect(firstArg.submitterName).toBe('Alice');
+    expect(firstArg.submitterEmail).toBe('alice@example.com');
   });
 });
