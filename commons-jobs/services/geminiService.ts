@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4010';
+// Browser-safe default for Vercel: API routes are served under /api.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface ParsedSearchFilters {
   keyword?: string;

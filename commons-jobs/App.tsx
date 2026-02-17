@@ -12,6 +12,7 @@ import JobDetailModal from './components/JobDetailModal';
 import { JobFilterState, JobPosting } from './types';
 import { getJobs, getJobById, adminLogin, hasAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
+import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -173,14 +174,15 @@ const App: React.FC = () => {
         setIsProcessingAI(true);
         try {
             const parsedFilters = await parseSearchQuery(searchQuery);
-            if (parsedFilters) {
+            const normalized = normalizeParsedSearchFilters(parsedFilters as any);
+            if (normalized) {
                 setFilters(prev => ({
                     ...prev,
-                    keyword: parsedFilters.keyword || '',
-                    remotePolicies: parsedFilters.remotePolicies || [],
-                    employmentTypes: parsedFilters.employmentTypes || [],
-                    seniorityLevels: parsedFilters.seniorityLevels || [],
-                    dateRange: parsedFilters.dateRange || 'all'
+                    keyword: normalized.keyword || '',
+                    remotePolicies: normalized.remotePolicies,
+                    employmentTypes: normalized.employmentTypes,
+                    seniorityLevels: normalized.seniorityLevels,
+                    dateRange: normalized.dateRange || 'all'
                 }));
             }
         } finally {
