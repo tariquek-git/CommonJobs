@@ -92,25 +92,28 @@ type NewJobPayload =
   Omit<JobPosting, 'id' | 'postedDate' | 'status' | 'clicks'> &
   Partial<Pick<JobPosting, 'postedDate' | 'status' | 'clicks'>>;
 
-export const submitJob = async (jobData: NewJobPayload): Promise<boolean> => {
-  await apiFetch('/jobs/submissions', {
+export const submitJob = async (jobData: NewJobPayload): Promise<string> => {
+  const data = await apiFetch<{ ok: true; jobId: string }>('/jobs/submissions', {
     method: 'POST',
     body: JSON.stringify(jobData)
   });
 
   jobSearchCache.clear();
-  return true;
+  if (!data.jobId) {
+    throw new Error('Submission succeeded but no job reference was returned.');
+  }
+  return data.jobId;
 };
 
-export const createAdminJob = async (jobData: NewJobPayload): Promise<boolean> => {
-  await apiFetch('/admin/jobs', {
+export const createAdminJob = async (jobData: NewJobPayload): Promise<JobPosting> => {
+  const data = await apiFetch<{ job: JobPosting }>('/admin/jobs', {
     method: 'POST',
     headers: adminHeaders(),
     body: JSON.stringify(jobData)
   });
 
   jobSearchCache.clear();
-  return true;
+  return data.job;
 };
 
 export const trackClick = (id: string) => {

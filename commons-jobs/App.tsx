@@ -173,11 +173,11 @@ const App: React.FC = () => {
     if (e.key === 'Enter' && searchQuery.trim().length > 2) {
         setIsProcessingAI(true);
         try {
-            const parsedFilters = await parseSearchQuery(searchQuery);
-            const normalized = normalizeParsedSearchFilters(parsedFilters as any);
-            if (normalized) {
-                setFilters(prev => ({
-                    ...prev,
+	            const parsedFilters = await parseSearchQuery(searchQuery);
+	            const normalized = normalizeParsedSearchFilters(parsedFilters);
+	            if (normalized) {
+	                setFilters(prev => ({
+	                    ...prev,
                     keyword: normalized.keyword || '',
                     remotePolicies: normalized.remotePolicies,
                     employmentTypes: normalized.employmentTypes,

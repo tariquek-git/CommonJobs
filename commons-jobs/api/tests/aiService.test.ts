@@ -24,7 +24,7 @@ describe('createAiService', () => {
     await service.analyzeJobDescription('Some job description.');
 
     expect(generateContentMock).toHaveBeenCalled();
-    const call = generateContentMock.mock.calls[0]?.[0] as { model?: string };
+    const call = (generateContentMock.mock.calls as any[])[0]?.[0] as { model?: string };
     expect(call.model).toBe('gemini-flash-latest');
   });
 

@@ -22,23 +22,37 @@ const toDateTimeLocal = (isoDate?: string): string => {
   return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
 };
 
-const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
+	const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   onSuccess,
   onOpenTerms,
   initialData,
   isAdminMode = false,
   defaultSourceType = 'Direct' as JobSourceType
-}) => {
+	}) => {
   const isEditing = !!initialData;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedJobId, setSubmittedJobId] = useState<string | null>(null);
   const [jdText, setJdText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [scrapeToast, setScrapeToast] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
   
-  const jdInputRef = useRef<HTMLTextAreaElement>(null);
+	  const jdInputRef = useRef<HTMLTextAreaElement>(null);
+	  const applyLinkId = useId();
+	  const cityId = useId();
+	  const cityListId = `major-cities-${cityId}`;
+
+	  const scrollToTop = () => {
+	    try {
+	      window.scrollTo({ top: 0, behavior: 'smooth' });
+	    } catch {
+	      // JSDOM and some non-browser runtimes don't implement scrollTo.
+	    }
+	  };
 
   // Initial State
   const getInitialState = (sourceType: JobSourceType): Partial<JobPosting> => ({
@@ -149,23 +163,25 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const submitterRequiredMissing = !isAdminMode && (!submitterName || !submitterEmail);
-    
-    if (!formData.companyName || 
-        !formData.roleTitle || 
-        !formData.externalLink || 
-        !formData.locationCountry || 
-        !formData.locationCity ||
-        submitterRequiredMissing) {
-      setError("Please fill in all mandatory fields.");
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
+	  const handleSubmit = async (e: React.FormEvent) => {
+	    e.preventDefault();
+	    const submitterRequiredMissing = !isAdminMode && (!submitterName || !submitterEmail);
+	    
+	    if (!formData.companyName || 
+	        !formData.roleTitle || 
+	        !formData.externalLink || 
+	        !formData.locationCountry || 
+	        !formData.locationCity ||
+	        submitterRequiredMissing) {
+	      setError('Please fill in all mandatory fields.');
+	      scrollToTop();
+	      // Focus error for keyboard/screen reader users.
+	      setTimeout(() => errorRef.current?.focus(), 0);
+	      return;
+	    }
 
-    setIsSubmitting(true);
-    try {
+	    setIsSubmitting(true);
+	    try {
       const payload: Partial<JobPosting> = {
         ...formData,
         sourceType: formData.sourceType || 'Direct',
@@ -175,24 +191,30 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
       if (submitterName) payload.submitterName = submitterName;
       if (submitterEmail) payload.submitterEmail = submitterEmail;
       
-      if (isEditing && initialData) {
-          await updateJob({ ...initialData, ...payload } as JobPosting);
-      } else if (isAdminMode) {
-          await createAdminJob(payload as Parameters<typeof createAdminJob>[0]);
-      } else {
-          await submitJob(payload as Parameters<typeof submitJob>[0]); 
-      }
-      
-      setIsSubmitted(true);
-      if (!isEditing) {
-         onSuccess();
-      }
-    } catch {
-      setError("Failed to submit job. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+	      let newJobId: string | null = null;
+	      if (isEditing && initialData) {
+	        await updateJob({ ...initialData, ...payload } as JobPosting);
+	        newJobId = initialData.id;
+	      } else if (isAdminMode) {
+	        const job = await createAdminJob(payload as Parameters<typeof createAdminJob>[0]);
+	        newJobId = job?.id || null;
+	      } else {
+	        newJobId = await submitJob(payload as Parameters<typeof submitJob>[0]);
+	      }
+	      
+	      setSubmittedJobId(newJobId);
+	      setIsSubmitted(true);
+	      scrollToTop();
+	      setTimeout(() => successHeadingRef.current?.focus(), 0);
+		    } catch (err) {
+		      const message = err instanceof Error ? err.message : 'Failed to submit job. Please try again.';
+		      setError(message);
+		      scrollToTop();
+		      setTimeout(() => errorRef.current?.focus(), 0);
+		    } finally {
+	      setIsSubmitting(false);
+	    }
+	  };
 
   const InputField = ({ label, required, id, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => {
     const autoId = useId();
@@ -247,35 +269,77 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     );
   };
 
-  if (isSubmitted) {
-      return (
-          <div className="max-w-xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center mt-8">
-              <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 size={24} />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                {isEditing ? 'Changes Saved' : (isAdminMode ? 'Job Created' : 'Submission Received')}
-              </h2>
-              <p className="text-gray-500 mb-6 text-sm">
-                  {isEditing
-                    ? 'Your job posting has been successfully updated.'
-                    : (isAdminMode ? 'The posting has been added to the board.' : 'Your post is now in the review queue.')}
-              </p>
-              <button 
-                type="button"
-                onClick={isEditing ? onSuccess : () => { 
-                    setIsSubmitted(false); 
-                    setFormData(getInitialState(defaultSourceType)); 
-                    setPostedDateInput('');
-                    setJdText('');
-                }} 
-                className="text-sm font-bold text-blue-600 hover:text-blue-800"
-              >
-                  {isEditing ? 'Back to Dashboard' : (isAdminMode ? 'Create Another Job' : 'Submit Another Role')}
-              </button>
-          </div>
-      );
-  }
+	  if (isSubmitted) {
+	      return (
+	          <div className="max-w-xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center mt-8">
+	              <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+	                  <CheckCircle2 size={24} />
+	              </div>
+	              <h2
+	                ref={successHeadingRef}
+	                tabIndex={-1}
+	                className="text-xl font-bold text-gray-900 mb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+	              >
+	                {isEditing ? 'Changes Saved' : (isAdminMode ? 'Job Created' : 'Submission Received')}
+	              </h2>
+	              <p className="text-gray-500 mb-6 text-sm">
+	                  {isEditing
+	                    ? 'Your job posting has been successfully updated.'
+	                    : (isAdminMode
+	                      ? 'The posting has been added to the board.'
+	                      : "Your post is now in the review queue. It won’t appear publicly until an admin approves it.")}
+	              </p>
+
+	              {submittedJobId && (
+	                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6 text-left">
+	                  <div className="font-bold text-gray-700 mb-1">Reference ID</div>
+	                  <div className="font-mono text-gray-800 break-all">{submittedJobId}</div>
+	                  {!isAdminMode && !isEditing && (
+	                    <div className="mt-2">
+	                      If you need to follow up, email{' '}
+	                      <a
+	                        className="text-blue-600 hover:underline"
+	                        href={`mailto:admin@fintechcommons.io?subject=Job%20submission%20${encodeURIComponent(submittedJobId)}`}
+	                      >
+	                        admin@fintechcommons.io
+	                      </a>{' '}
+	                      and include this ID.
+	                    </div>
+	                  )}
+	                </div>
+	              )}
+
+	              <div className="flex flex-col gap-3 items-center">
+	                <button
+	                  type="button"
+	                  onClick={onSuccess}
+	                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
+	                >
+	                  {isEditing || isAdminMode ? 'Back to Dashboard' : 'Back to Browse'}
+	                </button>
+	                {!isEditing && (
+	                  <button
+	                    type="button"
+	                    onClick={() => {
+	                      setIsSubmitted(false);
+	                      setSubmittedJobId(null);
+	                      setFormData(getInitialState(defaultSourceType));
+	                      setPostedDateInput('');
+	                      setJdText('');
+	                    setSubmitterName('');
+	                    setSubmitterEmail('');
+	                    setError(null);
+	                      scrollToTop();
+	                    }}
+	                    className="text-sm font-bold text-blue-600 hover:text-blue-800"
+	                  >
+	                    {isAdminMode ? 'Create Another Job' : 'Submit Another Role'}
+	                  </button>
+	                )}
+	              </div>
+	          </div>
+	      );
+	  }
 
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
@@ -296,11 +360,16 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-8">
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-100">
-              {error}
-            </div>
-          )}
+	          {error && (
+	            <div
+	              ref={errorRef}
+	              role="alert"
+	              tabIndex={-1}
+	              className="bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+	            >
+	              {error}
+	            </div>
+	          )}
 
           {!isAdminMode && (
             <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm border border-blue-100">
@@ -310,10 +379,10 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
           {/* Step 1: Link & Intelligence */}
           <section className="space-y-4">
-             <div className="flex items-center justify-between">
-                <label className="block text-sm font-bold text-gray-900">
-                  1. {isAdminMode ? 'Role Source Link' : 'Link to Apply (JD)'}
-                </label>
+	             <div className="flex items-center justify-between">
+	                <label htmlFor={applyLinkId} className="block text-sm font-bold text-gray-900">
+	                  1. {isAdminMode ? 'Role Source Link' : 'Link to Apply (JD)'}
+	                </label>
                 <button
                     type="button"
                     onClick={handleLinkAutofill}
@@ -325,14 +394,15 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 </button>
              </div>
              
-             <input 
-                required 
-                type="url" 
-                placeholder="https://company.com/jobs/..." 
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base"
-                value={formData.externalLink} 
-                onChange={e => setFormData({...formData, externalLink: e.target.value})} 
-             />
+	             <input 
+	                id={applyLinkId}
+	                required 
+	                type="url" 
+	                placeholder="https://company.com/jobs/..." 
+	                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base"
+	                value={formData.externalLink} 
+	                onChange={e => setFormData({...formData, externalLink: e.target.value})} 
+	             />
 
              {/* JD Paste Fallback */}
              <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
@@ -395,21 +465,24 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                         onChange={e => setFormData({...formData, locationState: e.target.value})} 
                         disabled={!formData.locationCountry}
                      />
-                     <div className="space-y-1">
-                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">City <span className="text-red-500">*</span></label>
-                         <input 
-                             required
-                             type="text" 
-                             list="major-cities"
-                             placeholder="Autocomplete..." 
-                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm"
-                             value={formData.locationCity || ''}
-                             onChange={e => setFormData({...formData, locationCity: e.target.value})}
-                         />
-                         <datalist id="major-cities">
-                             {MAJOR_CITIES.map(city => <option key={city} value={city} />)}
-                         </datalist>
-                     </div>
+	                     <div className="space-y-1">
+	                         <label htmlFor={cityId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+	                           City <span className="text-red-500">*</span>
+	                         </label>
+	                         <input 
+	                             required
+	                             id={cityId}
+	                             type="text" 
+	                             list={cityListId}
+	                             placeholder="Autocomplete..." 
+	                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm"
+	                             value={formData.locationCity || ''}
+	                             onChange={e => setFormData({...formData, locationCity: e.target.value})}
+	                         />
+	                         <datalist id={cityListId}>
+	                             {MAJOR_CITIES.map(city => <option key={city} value={city} />)}
+	                         </datalist>
+	                     </div>
                  </div>
             </div>
 
