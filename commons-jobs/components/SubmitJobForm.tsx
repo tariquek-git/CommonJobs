@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useId, useRef } from 'react';
-import { EmploymentType, JobPosting, JobSourceType, RemotePolicy } from '../types';
+import { EmploymentType, JobPosting, JobSourceType, RemotePolicy, SeniorityLevel } from '../types';
 import { COUNTRIES, PROVINCES, MAJOR_CITIES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
@@ -14,6 +14,66 @@ interface SubmitJobFormProps {
   isAdminMode?: boolean;
   defaultSourceType?: JobSourceType;
 }
+
+type InputFieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  required?: boolean;
+  id?: string;
+};
+
+const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, ...props }) => {
+  const autoId = useId();
+  const inputId = id || `field-${autoId}`;
+
+  return (
+    <div className="space-y-1">
+      <label htmlFor={inputId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        id={inputId}
+        name={name || inputId}
+        required={required}
+        {...props}
+        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400"
+      />
+    </div>
+  );
+};
+
+type SelectFieldProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
+  label: string;
+  options: string[];
+  required?: boolean;
+  id?: string;
+};
+
+const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id, name, ...props }) => {
+  const autoId = useId();
+  const selectId = id || `field-${autoId}`;
+
+  return (
+    <div className="space-y-1">
+      <label htmlFor={selectId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select
+        id={selectId}
+        name={name || selectId}
+        required={required}
+        {...props}
+        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+      >
+        <option value="">Select...</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 const toDateTimeLocal = (isoDate?: string): string => {
   if (!isoDate) return '';
@@ -122,25 +182,53 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }, 1200);
   };
 
-  const normalizeAIData = (data: Record<string, unknown>) => {
-    const { employmentType, ...rest } = data;
-    let locationCountry = typeof data.locationCountry === 'string' ? data.locationCountry : '';
-    let remotePolicy = typeof data.remotePolicy === 'string' ? data.remotePolicy : '';
+	  const normalizeAIData = (data: Record<string, unknown>) => {
+	    const { employmentType, seniority, ...rest } = data;
+	    let locationCountry = typeof data.locationCountry === 'string' ? data.locationCountry : '';
+	    let remotePolicy = typeof data.remotePolicy === 'string' ? data.remotePolicy : '';
+	    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
+	    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
 
     // Strict Normalization for Dropdowns
     if (locationCountry === 'USA' || locationCountry === 'US') locationCountry = 'United States';
     if (locationCountry === 'UK' || locationCountry === 'Germany' || locationCountry === 'France') locationCountry = 'Europe';
     if (!COUNTRIES.includes(locationCountry)) locationCountry = 'Rest of World';
 
-    // Normalize Remote Policy
-    if (!Object.values(RemotePolicy).includes(remotePolicy as RemotePolicy)) {
-        if (remotePolicy?.toLowerCase().includes('remote')) remotePolicy = RemotePolicy.REMOTE;
-        else if (remotePolicy?.toLowerCase().includes('hybrid')) remotePolicy = RemotePolicy.HYBRID;
-        else remotePolicy = RemotePolicy.ONSITE;
-    }
+	    // Normalize Remote Policy
+	    if (!Object.values(RemotePolicy).includes(remotePolicy as RemotePolicy)) {
+	        if (remotePolicy?.toLowerCase().includes('remote')) remotePolicy = RemotePolicy.REMOTE;
+	        else if (remotePolicy?.toLowerCase().includes('hybrid')) remotePolicy = RemotePolicy.HYBRID;
+	        else remotePolicy = RemotePolicy.ONSITE;
+	    }
 
-    return { locationCountry, remotePolicy, employmentType, ...rest };
-  };
+	    // Normalize Employment Type (optional but must match enum if present)
+	    if (!Object.values(EmploymentType).includes(normalizedEmploymentType as EmploymentType)) {
+	      const lower = normalizedEmploymentType.toLowerCase();
+	      if (lower.includes('full')) normalizedEmploymentType = EmploymentType.FULL_TIME;
+	      else if (lower.includes('contract')) normalizedEmploymentType = EmploymentType.CONTRACT;
+	      else if (lower.includes('intern')) normalizedEmploymentType = EmploymentType.INTERNSHIP;
+	      else normalizedEmploymentType = '';
+	    }
+
+	    // Normalize Seniority (optional but must match enum if present)
+	    if (!Object.values(SeniorityLevel).includes(normalizedSeniority as SeniorityLevel)) {
+	      const lower = normalizedSeniority.toLowerCase();
+	      if (lower.includes('junior') || lower === 'jr') normalizedSeniority = SeniorityLevel.JUNIOR;
+	      else if (lower.includes('mid')) normalizedSeniority = SeniorityLevel.MID;
+	      else if (lower.includes('senior') || lower === 'sr') normalizedSeniority = SeniorityLevel.SENIOR;
+	      else if (lower.includes('lead') || lower.includes('staff') || lower.includes('principal')) normalizedSeniority = SeniorityLevel.LEAD;
+	      else if (lower.includes('exec') || lower.includes('director') || lower.includes('vp')) normalizedSeniority = SeniorityLevel.EXECUTIVE;
+	      else normalizedSeniority = '';
+	    }
+
+	    return {
+	      locationCountry,
+	      remotePolicy,
+	      employmentType: normalizedEmploymentType || undefined,
+	      seniority: normalizedSeniority || undefined,
+	      ...rest
+	    };
+	  };
 
   const handleAIAnalysis = async () => {
     if (!jdText.trim()) return;
@@ -218,59 +306,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	      setIsSubmitting(false);
 	    }
 	  };
-
-  const InputField = ({ label, required, id, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => {
-    const autoId = useId();
-    const inputId = id || `field-${autoId}`;
-
-    return (
-      <div className="space-y-1">
-        <label htmlFor={inputId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <input
-          id={inputId}
-          name={props.name || inputId}
-          required={required}
-          {...props}
-          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400"
-        />
-      </div>
-    );
-  };
-
-  const SelectField = ({
-    label,
-    required,
-    options,
-    id,
-    ...props
-  }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string; options: string[] }) => {
-    const autoId = useId();
-    const selectId = id || `field-${autoId}`;
-
-    return (
-      <div className="space-y-1">
-        <label htmlFor={selectId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <select
-          id={selectId}
-          name={props.name || selectId}
-          required={required}
-          {...props}
-          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
-        >
-          <option value="">Select...</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  };
 
 	  if (isSubmitted) {
 	      return (
