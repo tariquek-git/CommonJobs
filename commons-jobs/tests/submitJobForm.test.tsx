@@ -3,8 +3,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const analyzeJobDescriptionMock = vi.fn().mockResolvedValue(null);
 vi.mock('../services/geminiService', () => ({
-  analyzeJobDescription: vi.fn().mockResolvedValue(null)
+  analyzeJobDescription: (...args: unknown[]) => analyzeJobDescriptionMock(...args)
 }));
 
 const submitJobMock = vi.fn();
@@ -23,6 +24,8 @@ describe('SubmitJobForm', () => {
   afterEach(() => {
     cleanup();
     submitJobMock.mockReset();
+    analyzeJobDescriptionMock.mockReset();
+    analyzeJobDescriptionMock.mockResolvedValue(null);
   });
 
   it('shows a success confirmation with a reference id after submission', async () => {
@@ -121,5 +124,28 @@ describe('SubmitJobForm', () => {
     expect(firstArg.externalLink).toBe('https://example.com/apply');
     expect(firstArg.submitterName).toBe('Alice');
     expect(firstArg.submitterEmail).toBe('alice@example.com');
+  });
+
+  it('keeps a valid default Remote Policy when AI returns an empty/invalid remotePolicy', async () => {
+    analyzeJobDescriptionMock.mockResolvedValueOnce({
+      summary: 'Test summary',
+      remotePolicy: ''
+    });
+
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    // Provide JD text so the AI button is enabled.
+    fireEvent.change(
+      screen.getByLabelText(/paste job description/i),
+      { target: { value: 'Some job description text' } }
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /generate summary & tags/i }));
+
+    await waitFor(() => {
+      const select = screen.getByLabelText(/remote policy/i) as HTMLSelectElement;
+      expect(select.value).toBe('Onsite');
+    });
   });
 });

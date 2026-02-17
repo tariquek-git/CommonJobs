@@ -103,10 +103,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const errorRef = useRef<HTMLDivElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   
-	  const jdInputRef = useRef<HTMLTextAreaElement>(null);
-	  const applyLinkId = useId();
-  const cityId = useId();
-  const cityListId = `major-cities-${cityId}`;
+		  const jdInputRef = useRef<HTMLTextAreaElement>(null);
+		  const applyLinkId = useId();
+	  const jdTextId = useId();
+	  const cityId = useId();
+	  const cityListId = `major-cities-${cityId}`;
   const showAdminShortcut = Boolean(onOpenAdminDashboard);
 
 	  const scrollToTop = () => {
@@ -182,12 +183,19 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }, 1200);
   };
 
-	  const normalizeAIData = (data: Record<string, unknown>) => {
-	    const { employmentType, seniority, ...rest } = data;
-	    let locationCountry = typeof data.locationCountry === 'string' ? data.locationCountry : '';
-	    let remotePolicy = typeof data.remotePolicy === 'string' ? data.remotePolicy : '';
-	    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
-	    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
+		  const normalizeAIData = (data: Record<string, unknown>) => {
+		    // Important: pluck normalized keys out so `...rest` cannot overwrite them.
+		    const {
+		      employmentType,
+		      seniority,
+		      locationCountry: rawLocationCountry,
+		      remotePolicy: rawRemotePolicy,
+		      ...rest
+		    } = data;
+		    let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
+		    let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
+		    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
+		    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
 
     // Strict Normalization for Dropdowns
     if (locationCountry === 'USA' || locationCountry === 'US') locationCountry = 'United States';
@@ -221,14 +229,14 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	      else normalizedSeniority = '';
 	    }
 
-	    return {
-	      locationCountry,
-	      remotePolicy,
-	      employmentType: normalizedEmploymentType || undefined,
-	      seniority: normalizedSeniority || undefined,
-	      ...rest
-	    };
-	  };
+		    return {
+		      ...rest,
+		      locationCountry,
+		      remotePolicy,
+		      employmentType: normalizedEmploymentType || undefined,
+		      seniority: normalizedSeniority || undefined
+		    };
+		  };
 
   const handleAIAnalysis = async () => {
     if (!jdText.trim()) return;
@@ -503,18 +511,19 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                onChange={e => setFormData({...formData, externalLink: e.target.value})} 
 	             />
 
-             {/* JD Paste Fallback */}
-             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                    Paste Job Description (Intelligence Engine)
-                </label>
-                <textarea
-                    ref={jdInputRef}
-                    className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 min-h-[120px] bg-white placeholder:text-gray-400"
-                    placeholder="If auto-fill fails, paste the full JD text here. The AI will extract role details, location, and tags for you."
-                    value={jdText}
-                    onChange={(e) => setJdText(e.target.value)}
-                />
+	             {/* JD Paste Fallback */}
+	             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
+	                <label htmlFor={jdTextId} className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+	                    Paste Job Description (Intelligence Engine)
+	                </label>
+	                <textarea
+	                    id={jdTextId}
+	                    ref={jdInputRef}
+	                    className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 min-h-[120px] bg-white placeholder:text-gray-400"
+	                    placeholder="If auto-fill fails, paste the full JD text here. The AI will extract role details, location, and tags for you."
+	                    value={jdText}
+	                    onChange={(e) => setJdText(e.target.value)}
+	                />
                 <button
                     type="button"
                     onClick={handleAIAnalysis}
