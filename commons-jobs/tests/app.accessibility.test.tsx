@@ -9,6 +9,7 @@ vi.mock('../services/jobService', () => ({
   getJobs: vi.fn(),
   getJobById: vi.fn().mockResolvedValue(undefined),
   adminLogin: vi.fn().mockResolvedValue(false),
+  adminLogout: vi.fn(),
   hasAdminSession: vi.fn().mockReturnValue(false)
 }));
 

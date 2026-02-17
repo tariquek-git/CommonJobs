@@ -10,7 +10,7 @@ import WhyWhoWhat from './components/WhyWhoWhat';
 import FAQ from './components/FAQ';
 import JobDetailModal from './components/JobDetailModal';
 import { JobFilterState, JobPosting } from './types';
-import { getJobs, getJobById, adminLogin, hasAdminSession } from './services/jobService';
+import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('admin');
+	  const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
@@ -191,24 +191,29 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    try {
-        const success = await adminLogin(adminUsername, adminPassword);
-        if (success) {
-            setIsAdmin(true);
-            setShowAdminLogin(false);
-            setCurrentView('admin');
-            setAdminUsername('admin');
-            setAdminPassword('');
-        } else {
-            setLoginError('Invalid credentials');
-        }
-    } catch {
-      setLoginError('Login failed');
-    }
-  };
+	  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
+	    e.preventDefault();
+	    setLoginError('');
+	    try {
+	        const success = await adminLogin(adminUsername, adminPassword);
+	        if (success) {
+	            setIsAdmin(true);
+	            setShowAdminLogin(false);
+	            setCurrentView('admin');
+	            setAdminPassword('');
+	        } else {
+	            setLoginError('Invalid credentials');
+	        }
+	    } catch {
+	      setLoginError('Login failed');
+	    }
+	  };
+
+	  const handleAdminLogout = () => {
+	    adminLogout();
+	    setIsAdmin(false);
+	    setCurrentView('browse');
+	  };
 
   const renderContent = () => {
     if (currentView === 'admin' && isAdmin) {
@@ -258,25 +263,44 @@ const App: React.FC = () => {
                     <JobFilters filters={filters} setFilters={setFilters} />
                 </div>
                 
-                <div className="pt-8 border-t border-gray-200">
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Admin & Info</h3>
-                    <div className="space-y-2 flex flex-col items-start">
-                        <button type="button" onClick={() => setCurrentView('terms')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
-                            Data, Terms & Common Sense
-                        </button>
-                        <button type="button" onClick={() => setCurrentView('about')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
-                            Why, Who, & What
-                        </button>
-                        <button type="button" onClick={() => setCurrentView('faq')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
-                            FAQ
-                        </button>
-                        <button type="button" onClick={() => setShowAdminLogin(true)} className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1 mt-2">
-                            <Lock size={12} /> Admin Login
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </aside>
+	                <div className="pt-8 border-t border-gray-200">
+	                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Admin & Info</h3>
+	                    <div className="space-y-2 flex flex-col items-start">
+	                        <button type="button" onClick={() => setCurrentView('terms')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                            Data, Terms & Common Sense
+	                        </button>
+	                        <button type="button" onClick={() => setCurrentView('about')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                            Why, Who, & What
+	                        </button>
+	                        <button type="button" onClick={() => setCurrentView('faq')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                            FAQ
+	                        </button>
+	                        {isAdmin ? (
+	                            <div className="flex items-center gap-3 mt-2">
+	                              <button
+	                                type="button"
+	                                onClick={() => setCurrentView('admin')}
+	                                className="text-xs font-bold text-gray-700 hover:text-blue-600 transition-colors"
+	                              >
+	                                Admin Dashboard
+	                              </button>
+	                              <button
+	                                type="button"
+	                                onClick={handleAdminLogout}
+	                                className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
+	                              >
+	                                Logout
+	                              </button>
+	                            </div>
+	                        ) : (
+	                            <button type="button" onClick={() => setShowAdminLogin(true)} className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1 mt-2">
+	                                <Lock size={12} /> Admin Login
+	                            </button>
+	                        )}
+	                    </div>
+	                </div>
+	            </div>
+	        </aside>
 
         <div className="flex-1 w-full">
             {/* Minimalist Search */}
