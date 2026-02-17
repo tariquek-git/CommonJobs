@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { JobPosting, JobStatus } from '../types';
-import { getAdminJobs, updateJobStatus } from '../services/jobService';
+import { getAdminJobs, getAdminRuntime, type AdminRuntimeInfo, updateJobStatus } from '../services/jobService';
 import { Plus, RefreshCw, Pencil, ArrowLeft, Archive } from 'lucide-react';
 import SubmitJobForm from './SubmitJobForm';
 
@@ -9,6 +9,8 @@ const AdminDashboard: React.FC = () => {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runtime, setRuntime] = useState<AdminRuntimeInfo | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'rejected' | 'archived'>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'Direct' | 'Aggregated'>('all');
   const [editingJob, setEditingJob] = useState<JobPosting | null>(null);
@@ -28,6 +30,20 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    const loadRuntime = async () => {
+      setRuntimeError(null);
+      try {
+        const info = await getAdminRuntime();
+        setRuntime(info);
+      } catch {
+        setRuntime(null);
+        setRuntimeError('System info unavailable.');
+      }
+    };
+    void loadRuntime();
   }, []);
 
   const handleStatusUpdate = async (id: string, status: JobStatus) => {
@@ -80,7 +96,26 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="max-w-full">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-           <h1 className="text-xl font-bold text-gray-900">Intelligence Console</h1>
+           <div>
+             <h1 className="text-xl font-bold text-gray-900">Intelligence Console</h1>
+             <div className="mt-1 text-xs text-gray-500">
+               {runtime ? (
+                 <>
+                   Storage: <span className="font-semibold text-gray-700">{runtime.provider}</span>
+                   {runtime.provider === 'supabase' && (
+                     <>
+                       {' '}({runtime.tables.jobs}, {runtime.tables.clicks})
+                     </>
+                   )}
+                   {' '}· AI: <span className="font-semibold text-gray-700">{runtime.gemini.enabled ? runtime.gemini.model : 'disabled'}</span>
+                 </>
+               ) : runtimeError ? (
+                 runtimeError
+               ) : (
+                 'Loading system info...'
+               )}
+             </div>
+           </div>
            <div className="flex items-center gap-2">
              <button
                type="button"

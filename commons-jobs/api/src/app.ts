@@ -217,6 +217,34 @@ export const buildApp = (
     return { jobs: withClicks };
   });
 
+  app.get('/admin/runtime', async (request, reply) => {
+    if (!adminGuard(request.headers.authorization)) {
+      return unauthorized(reply);
+    }
+
+    // Intentionally omit secrets; this is for deployment/debug visibility only.
+    return {
+      ok: true,
+      provider: appEnv.STORAGE_PROVIDER,
+      tables: {
+        jobs: appEnv.SUPABASE_JOBS_TABLE,
+        clicks: appEnv.SUPABASE_CLICKS_TABLE
+      },
+      gemini: {
+        enabled: Boolean(appEnv.GEMINI_API_KEY),
+        model: appEnv.GEMINI_MODEL
+      },
+      env: {
+        nodeEnv: appEnv.NODE_ENV,
+        trustProxy: appEnv.TRUST_PROXY
+      },
+      vercel: {
+        gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+        deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null
+      }
+    };
+  });
+
   app.post('/admin/jobs', async (request, reply) => {
     if (!adminGuard(request.headers.authorization)) {
       return unauthorized(reply);

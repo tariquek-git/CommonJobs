@@ -153,6 +153,22 @@ export const getAdminJobs = async (): Promise<JobPosting[]> => {
   return data.jobs;
 };
 
+export type AdminRuntimeInfo = {
+  ok: true;
+  provider: 'file' | 'supabase';
+  tables: { jobs: string; clicks: string };
+  gemini: { enabled: boolean; model: string };
+  env: { nodeEnv: string; trustProxy: boolean | number };
+  vercel: { gitCommitSha: string | null; deploymentId: string | null };
+};
+
+export const getAdminRuntime = async (): Promise<AdminRuntimeInfo> => {
+  return apiFetch<AdminRuntimeInfo>('/admin/runtime', {
+    method: 'GET',
+    headers: adminHeaders()
+  });
+};
+
 export const updateJobStatus = async (id: string, status: JobStatus): Promise<void> => {
   await apiFetch(`/admin/jobs/${id}/status`, {
     method: 'PATCH',

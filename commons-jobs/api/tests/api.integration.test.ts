@@ -185,6 +185,30 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('returns runtime info for admins', async () => {
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    expect(loginRes.statusCode).toBe(200);
+    const token = (loginRes.json() as { token: string }).token;
+    expect(token).toBeTruthy();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/admin/runtime',
+      headers: { authorization: `Bearer ${token}` }
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { ok: boolean; provider: string };
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe('file');
+    await app.close();
+  });
+
   it('rejects wrong admin password', async () => {
     const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({
