@@ -13,6 +13,7 @@ import { JobFilterState, JobPosting } from './types';
 import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
+import { CONTACT_EMAIL } from './siteConfig';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -519,11 +520,11 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <div className="pt-4 max-w-xl mx-auto">
-             <p className="text-xs text-gray-400">
-                Email <a href="mailto:admin@fintechcommons.io" className="text-blue-600 hover:underline">admin@fintechcommons.io</a> for edits or takedowns.
-             </p>
-          </div>
+	          <div className="pt-4 max-w-xl mx-auto">
+	             <p className="text-xs text-gray-400">
+	                Email <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a> for edits or takedowns.
+	             </p>
+	          </div>
         </div>
       </footer>
     </div>

@@ -5,6 +5,7 @@ import { COUNTRIES, PROVINCES, MAJOR_CITIES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
+import { CONTACT_EMAIL } from '../siteConfig';
 
 interface SubmitJobFormProps {
   onSuccess: () => void;
@@ -401,18 +402,18 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6 text-left">
 	                  <div className="font-bold text-gray-700 mb-1">Reference ID</div>
 	                  <div className="font-mono text-gray-800 break-all">{submittedJobId}</div>
-	                  {!isAdminMode && !isEditing && (
-	                    <div className="mt-2">
-	                      If you need to follow up, email{' '}
-	                      <a
-	                        className="text-blue-600 hover:underline"
-	                        href={`mailto:admin@fintechcommons.io?subject=Job%20submission%20${encodeURIComponent(submittedJobId)}`}
-	                      >
-	                        admin@fintechcommons.io
-	                      </a>{' '}
-	                      and include this ID.
-	                    </div>
-	                  )}
+		                  {!isAdminMode && !isEditing && (
+		                    <div className="mt-2">
+		                      If you need to follow up, email{' '}
+		                      <a
+		                        className="text-blue-600 hover:underline"
+		                        href={`mailto:${CONTACT_EMAIL}?subject=Job%20submission%20${encodeURIComponent(submittedJobId)}`}
+		                      >
+		                        {CONTACT_EMAIL}
+		                      </a>{' '}
+		                      and include this ID.
+		                    </div>
+		                  )}
 	                </div>
 	              )}
 
