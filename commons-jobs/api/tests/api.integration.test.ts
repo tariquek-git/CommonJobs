@@ -23,6 +23,7 @@ const buildTestEnv = (overrides: Record<string, string> = {}) =>
     RATE_LIMIT_MAX_SUBMIT: '20',
     RATE_LIMIT_MAX_ADMIN_LOGIN: '30',
     RATE_LIMIT_MAX_CLICK: '60',
+    RATE_LIMIT_MAX_AI: '30',
     CLICK_DEDUPE_WINDOW_MS: '60000',
     TRUST_PROXY: 'false',
     ...overrides
@@ -103,6 +104,76 @@ describe('API integration', () => {
     expect(clickRes.statusCode).toBe(200);
     const clickBody = clickRes.json() as { clicks: number };
     expect(clickBody.clicks).toBe(1);
+
+    await app.close();
+  });
+
+  it('AI endpoints return 503 when not configured', async () => {
+    const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      payload: { description: 'Test description' }
+    });
+    expect(res.statusCode).toBe(503);
+
+    await app.close();
+  });
+
+  it('AI endpoints are rate limited by request.ip and not bypassed by spoofed x-forwarded-for', async () => {
+    const stubAi = {
+      analyzeJobDescription: async () => ({ ok: true }),
+      parseSearchQuery: async () => ({ ok: true })
+    };
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        GEMINI_API_KEY: 'fake-key',
+        RATE_LIMIT_MAX_AI: '1'
+      }),
+      stubAi as any
+    );
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      payload: { description: 'Test description' }
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      headers: { 'x-forwarded-for': '8.8.8.8' },
+      payload: { description: 'Test description' }
+    });
+    expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('AI endpoints return 502 when Gemini call fails', async () => {
+    const stubAi = {
+      analyzeJobDescription: async () => null,
+      parseSearchQuery: async () => null
+    };
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        GEMINI_API_KEY: 'fake-key'
+      }),
+      stubAi as any
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      payload: { description: 'Test description' }
+    });
+    expect(res.statusCode).toBe(502);
 
     await app.close();
   });

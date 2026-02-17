@@ -39,6 +39,7 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_SUBMIT: z.coerce.number().default(20),
   RATE_LIMIT_MAX_ADMIN_LOGIN: z.coerce.number().default(30),
   RATE_LIMIT_MAX_CLICK: z.coerce.number().default(60),
+  RATE_LIMIT_MAX_AI: z.coerce.number().default(30),
   CLICK_DEDUPE_WINDOW_MS: z.coerce.number().default(60 * 1000),
   TRUST_PROXY: z.string().default('false').transform(parseTrustProxy)
 });

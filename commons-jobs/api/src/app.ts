@@ -21,13 +21,18 @@ import { JobRepository } from './storage/jobRepository.js';
 import { createAiService } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
-export const buildApp = (repository: JobRepository, clickRepository: ClickRepository, appEnv: AppEnv) => {
+export const buildApp = (
+  repository: JobRepository,
+  clickRepository: ClickRepository,
+  appEnv: AppEnv,
+  aiServiceOverride?: ReturnType<typeof createAiService>
+) => {
   const app = Fastify({
     logger: appEnv.NODE_ENV !== 'test',
     trustProxy: appEnv.TRUST_PROXY
   });
   const allowedOrigins = parseAllowedOrigins(appEnv.CLIENT_ORIGIN);
-  const aiService = createAiService(appEnv.GEMINI_API_KEY, appEnv.GEMINI_MODEL);
+  const aiService = aiServiceOverride ?? createAiService(appEnv.GEMINI_API_KEY, appEnv.GEMINI_MODEL);
   const clickDedupeWindow = Math.max(1, appEnv.CLICK_DEDUPE_WINDOW_MS);
   const clickDedupe = new Map<string, number>();
 
@@ -300,16 +305,40 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.post('/ai/analyze-job', async (request, reply) => {
+    const ip = request.ip;
+    const limit = checkRateLimit(`ai:${ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_AI
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
+    if (!appEnv.GEMINI_API_KEY) {
+      return reply.status(503).send({ error: 'AI is not configured' });
+    }
+
     const body = (request.body || {}) as { description?: string };
     if (!body.description) return badRequest(reply, 'Description required');
     const result = await aiService.analyzeJobDescription(body.description);
+    if (!result) return reply.status(502).send({ error: 'AI request failed' });
     return { result };
   });
 
   app.post('/ai/parse-search', async (request, reply) => {
+    const ip = request.ip;
+    const limit = checkRateLimit(`ai:${ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_AI
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
+    if (!appEnv.GEMINI_API_KEY) {
+      return reply.status(503).send({ error: 'AI is not configured' });
+    }
+
     const body = (request.body || {}) as { query?: string };
     if (!body.query) return badRequest(reply, 'Query required');
     const result = await aiService.parseSearchQuery(body.query);
+    if (!result) return reply.status(502).send({ error: 'AI request failed' });
     return { result };
   });
 
