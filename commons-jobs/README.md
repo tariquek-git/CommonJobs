@@ -126,6 +126,7 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 ## Deploy (Vercel-Only + Supabase)
 1. In Supabase SQL Editor, run:
    - `/Users/tarique/Documents/commons-jobs/api/supabase/migrations/20260216_job_board_storage.sql`
+   - `/Users/tarique/Documents/commons-jobs/api/supabase/migrations/20260217_job_board_rls.sql` (recommended hardening)
 2. In Vercel, import the repo and set Root Directory to:
    - `commons-jobs`
 3. Build settings:
