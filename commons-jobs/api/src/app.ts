@@ -93,6 +93,15 @@ export const buildApp = (
     return typeof lastSeen === 'number' && now - lastSeen < clickDedupeWindow;
   };
 
+  const submissionValidationMessage = (issues: Array<{ path: PropertyKey[] }>): string => {
+    const topLevel = new Set(issues.map((issue) => String(issue.path?.[0] ?? '')));
+    if (topLevel.has('externalLink')) return 'Please provide a valid apply link (URL).';
+    if (topLevel.has('submitterEmail')) return 'Please provide a valid email address.';
+    if (topLevel.has('companyName') || topLevel.has('roleTitle')) return 'Company name and role title are required.';
+    if (topLevel.has('locationCountry') || topLevel.has('locationCity')) return 'Please provide a country and city.';
+    return 'Invalid submission payload';
+  };
+
   app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
 
   app.post('/auth/admin-login', async (request, reply) => {
@@ -168,7 +177,10 @@ export const buildApp = (
 
     const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
     const parsed = publicSubmissionSchema.safeParse(normalized);
-    if (!parsed.success) return badRequest(reply, 'Invalid submission payload');
+    if (!parsed.success) {
+      app.log.info({ issues: parsed.error.issues }, 'Invalid job submission payload');
+      return badRequest(reply, submissionValidationMessage(parsed.error.issues));
+    }
 
     if (normalized.website) {
       return badRequest(reply, 'Invalid submission payload');

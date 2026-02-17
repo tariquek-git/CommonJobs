@@ -2,6 +2,49 @@ import { z } from 'zod';
 import { sanitizeOptionalUrl, sanitizeTags, sanitizeText } from '../lib/sanitize.js';
 import { EmploymentType, JobPosting, JobSourceType, JobStatus, RemotePolicy, SeniorityLevel } from '../types/jobs.js';
 
+const normalizeRemotePolicy = (value: unknown): RemotePolicy | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed === 'Onsite' || trimmed === 'Hybrid' || trimmed === 'Remote') return trimmed;
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('remote')) return 'Remote';
+  if (lower.includes('hybrid')) return 'Hybrid';
+  if (lower.includes('on-site') || lower.includes('onsite') || lower === 'on site' || lower === 'on') return 'Onsite';
+  return undefined;
+};
+
+const normalizeEmploymentType = (value: unknown): EmploymentType | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed === 'Full-time' || trimmed === 'Contract' || trimmed === 'Internship') return trimmed;
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('full')) return 'Full-time';
+  if (lower.includes('contract')) return 'Contract';
+  if (lower.includes('intern')) return 'Internship';
+  return undefined;
+};
+
+const normalizeSeniority = (value: unknown): SeniorityLevel | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed === 'Junior' || trimmed === 'Mid-Level' || trimmed === 'Senior' || trimmed === 'Lead' || trimmed === 'Executive') {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower === 'jr' || lower.includes('junior')) return 'Junior';
+  if (lower.includes('mid')) return 'Mid-Level';
+  if (lower === 'sr' || lower.includes('senior')) return 'Senior';
+  if (lower.includes('lead') || lower.includes('staff') || lower.includes('principal')) return 'Lead';
+  if (lower.includes('exec') || lower.includes('director') || lower.includes('vp') || lower.includes('head')) return 'Executive';
+  return undefined;
+};
+
 const remotePolicySchema = z.enum(['Onsite', 'Hybrid', 'Remote']);
 const employmentTypeSchema = z.enum(['Full-time', 'Contract', 'Internship']);
 const senioritySchema = z.enum(['Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive']);
@@ -102,9 +145,11 @@ export const normalizeIncomingJob = (input: Record<string, unknown>) => {
     locationState: cleanString(input.locationState, 120),
     locationCountry: cleanString(input.locationCountry, 120),
     region: cleanString(input.region, 120),
-    remotePolicy: input.remotePolicy as RemotePolicy | undefined,
-    employmentType: input.employmentType as EmploymentType | undefined,
-    seniority: input.seniority as SeniorityLevel | undefined,
+    // Defensive normalization: optional enums often come from AI or client selects with empty values.
+    // Treat unknown/blank values as undefined instead of failing the entire submission.
+    remotePolicy: normalizeRemotePolicy(input.remotePolicy),
+    employmentType: normalizeEmploymentType(input.employmentType),
+    seniority: normalizeSeniority(input.seniority),
     salaryRange: cleanString(input.salaryRange, 120),
     currency: cleanString(input.currency, 12),
     tags: sanitizeTags(input.tags),

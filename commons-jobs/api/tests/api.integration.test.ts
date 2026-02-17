@@ -276,6 +276,53 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('returns a friendly error message for invalid submitter emails', async () => {
+    const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/submissions',
+      payload: {
+        companyName: 'Nova Labs',
+        roleTitle: 'Risk Analyst',
+        externalLink: 'https://example.com/job',
+        locationCountry: 'Canada',
+        locationCity: 'Toronto',
+        submitterName: 'Admin',
+        submitterEmail: 'not-an-email'
+      }
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error.toLowerCase()).toContain('email');
+    await app.close();
+  });
+
+  it('normalizes optional enum-like fields instead of failing the whole submission', async () => {
+    const repo = new InMemoryJobRepository([]);
+    const app = buildApp(repo, new InMemoryClickRepository(), buildTestEnv());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/submissions',
+      payload: {
+        companyName: 'Nova Labs',
+        roleTitle: 'Risk Analyst',
+        externalLink: 'example.com/job',
+        locationCountry: 'Canada',
+        locationCity: 'Toronto',
+        submitterName: 'Admin',
+        submitterEmail: 'admin@example.com',
+        remotePolicy: 'hybrid (3 days)',
+        employmentType: 'full time',
+        seniority: 'sr'
+      }
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect((res.json() as { jobId: string }).jobId).toBeTruthy();
+    await app.close();
+  });
+
   it('click endpoint increments only active jobs and dedupes rapid repeated clicks', async () => {
     const pendingJob: JobPosting = {
       id: 'job-pending',
