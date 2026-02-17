@@ -152,4 +152,27 @@ describe('SubmitJobForm', () => {
     const company = screen.getByLabelText(/company name/i) as HTMLInputElement;
     expect(company.value).toBe('');
   });
+
+  it('does not allow AI output to overwrite the apply link field', async () => {
+    analyzeJobDescriptionMock.mockResolvedValueOnce({
+      summary: 'Test summary',
+      externalLink: 'not-a-url',
+      companyName: 'AI Co'
+    });
+
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/link to apply/i), { target: { value: 'https://example.com/apply' } });
+    fireEvent.change(screen.getByLabelText(/paste job description/i), { target: { value: 'Some job description text' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /generate summary & tags/i }));
+
+    await waitFor(() => {
+      expect(analyzeJobDescriptionMock).toHaveBeenCalledTimes(1);
+    });
+
+    const applyLink = screen.getByLabelText(/link to apply/i) as HTMLInputElement;
+    expect(applyLink.value).toBe('https://example.com/apply');
+  });
 });

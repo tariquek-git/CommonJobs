@@ -104,20 +104,20 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const errorRef = useRef<HTMLDivElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   
-		  const jdInputRef = useRef<HTMLTextAreaElement>(null);
-		  const applyLinkId = useId();
-	  const jdTextId = useId();
-	  const cityId = useId();
-	  const cityListId = `major-cities-${cityId}`;
+  const jdInputRef = useRef<HTMLTextAreaElement>(null);
+  const applyLinkId = useId();
+  const jdTextId = useId();
+  const cityId = useId();
+  const cityListId = `major-cities-${cityId}`;
   const showAdminShortcut = Boolean(onOpenAdminDashboard);
 
-	  const scrollToTop = () => {
-	    try {
-	      window.scrollTo({ top: 0, behavior: 'smooth' });
-	    } catch {
-	      // JSDOM and some non-browser runtimes don't implement scrollTo.
-	    }
-	  };
+  const scrollToTop = () => {
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      // JSDOM and some non-browser runtimes don't implement scrollTo.
+    }
+  };
 
   // Initial State
   const getInitialState = (sourceType: JobSourceType): Partial<JobPosting> => ({
@@ -184,30 +184,45 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }, 1200);
   };
 
-		  const normalizeAIData = (data: Record<string, unknown>) => {
-		    // Important: pluck normalized keys out so `...rest` cannot overwrite them.
-		    const {
-		      employmentType,
-		      seniority,
-		      locationCountry: rawLocationCountry,
-		      remotePolicy: rawRemotePolicy,
-		      ...rest
-		    } = data;
-		    // Guard against AI returning `null`, objects, etc. React inputs treat `null` oddly (can render "null").
-		    const safeRest: Record<string, unknown> = {};
-		    for (const [key, value] of Object.entries(rest)) {
-		      if (typeof value === 'string') {
-		        safeRest[key] = value;
-		        continue;
-		      }
-		      if (Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
-		        safeRest[key] = value;
-		      }
-		    }
-		    let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
-		    let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
-		    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
-		    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
+  const normalizeAIData = (data: Record<string, unknown>) => {
+    // Important: pluck normalized keys out so `...rest` cannot overwrite them.
+    const {
+      employmentType,
+      seniority,
+      locationCountry: rawLocationCountry,
+      remotePolicy: rawRemotePolicy,
+      ...rest
+    } = data;
+
+    // Guard rails: AI must never override key submission fields like externalLink.
+    // Only allow a narrow set of fields to be applied to the form.
+    const allowedStringFields = new Set([
+      'companyName',
+      'roleTitle',
+      'companyWebsite',
+      'locationCity',
+      'locationState',
+      'region',
+      'salaryRange',
+      'currency',
+      'externalSource'
+    ]);
+    const safeRest: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (key === 'externalLink' || key === 'submitterEmail' || key === 'submitterName') continue;
+      if (allowedStringFields.has(key) && typeof value === 'string') {
+        safeRest[key] = value;
+        continue;
+      }
+      if (key === 'tags' && Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
+        safeRest[key] = value;
+      }
+    }
+
+    let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
+    let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
+    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
+    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
 
     // Strict Normalization for Dropdowns
     if (locationCountry === 'USA' || locationCountry === 'US') locationCountry = 'United States';
@@ -241,14 +256,14 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	      else normalizedSeniority = '';
 	    }
 
-		    return {
-		      ...safeRest,
-		      locationCountry,
-		      remotePolicy,
-		      employmentType: normalizedEmploymentType || undefined,
-		      seniority: normalizedSeniority || undefined
-		    };
-		  };
+    return {
+      ...safeRest,
+      locationCountry,
+      remotePolicy,
+      employmentType: normalizedEmploymentType || undefined,
+      seniority: normalizedSeniority || undefined
+    };
+  };
 
   const handleAIAnalysis = async () => {
     if (!jdText.trim()) return;
@@ -259,10 +274,10 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
       const rawAnalysis = await analyzeJobDescription(jdText) as Record<string, unknown> | null;
       if (rawAnalysis) {
         const normalized = normalizeAIData(rawAnalysis);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           ...normalized,
-          intelligenceSummary: rawAnalysis.summary // Map summary to intelligenceSummary
+          intelligenceSummary: typeof rawAnalysis.summary === 'string' ? rawAnalysis.summary : prev.intelligenceSummary
         }));
       } else {
           setError("AI analysis failed. Please fill details manually.");
@@ -513,15 +528,15 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 </button>
              </div>
              
-	             <input 
-	                id={applyLinkId}
-	                required 
-	                type="url" 
-	                placeholder="https://company.com/jobs/..." 
-	                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base"
-	                value={formData.externalLink} 
-	                onChange={e => setFormData({...formData, externalLink: e.target.value})} 
-	             />
+		             <input 
+		                id={applyLinkId}
+		                required 
+		                type="url" 
+		                placeholder="https://company.com/jobs/..." 
+		                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base"
+		                value={formData.externalLink || ''} 
+		                onChange={(e) => setFormData((prev) => ({ ...prev, externalLink: e.target.value }))} 
+		             />
 
 	             {/* JD Paste Fallback */}
 	             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
@@ -562,29 +577,29 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
             <h3 className="text-sm font-bold text-gray-900">2. Role Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
-                 <InputField label="Role Title" required value={formData.roleTitle} onChange={e => setFormData({...formData, roleTitle: e.target.value})} />
-              </div>
-
-              <InputField label="Company Name" required value={formData.companyName} onChange={e => setFormData({...formData, companyName: e.target.value})} />
-              <InputField label="Company Website" value={formData.companyWebsite} onChange={e => setFormData({...formData, companyWebsite: e.target.value})} />
-
-              <SelectField label="Remote Policy" required options={Object.values(RemotePolicy)} value={formData.remotePolicy || ''} onChange={e => setFormData({...formData, remotePolicy: e.target.value as RemotePolicy})} />
-              <SelectField label="Employment Type" options={Object.values(EmploymentType)} value={formData.employmentType || ''} onChange={e => setFormData({...formData, employmentType: e.target.value as EmploymentType})} />
-            </div>
+	                 <InputField label="Role Title" required value={formData.roleTitle || ''} onChange={(e) => setFormData((prev) => ({ ...prev, roleTitle: e.target.value }))} />
+	              </div>
+	
+	              <InputField label="Company Name" required value={formData.companyName || ''} onChange={(e) => setFormData((prev) => ({ ...prev, companyName: e.target.value }))} />
+	              <InputField label="Company Website" value={formData.companyWebsite || ''} onChange={(e) => setFormData((prev) => ({ ...prev, companyWebsite: e.target.value }))} />
+	
+	              <SelectField label="Remote Policy" required options={Object.values(RemotePolicy)} value={formData.remotePolicy || ''} onChange={(e) => setFormData((prev) => ({ ...prev, remotePolicy: e.target.value as RemotePolicy }))} />
+	              <SelectField label="Employment Type" options={Object.values(EmploymentType)} value={formData.employmentType || ''} onChange={(e) => setFormData((prev) => ({ ...prev, employmentType: e.target.value as EmploymentType }))} />
+	            </div>
 
             {/* Location Hierarchy */}
             <div className="bg-white p-5 rounded-lg border border-gray-200 space-y-4">
                  <h4 className="text-xs font-bold text-gray-500 uppercase">Location Hierarchy</h4>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      <SelectField label="Country" required options={COUNTRIES} value={formData.locationCountry || ''} onChange={handleCountryChange} />
-                     <SelectField 
-                        label="State/Province" 
-                        required={false}
-                        options={formData.locationCountry ? (PROVINCES[formData.locationCountry] || []) : []} 
-                        value={formData.locationState || ''} 
-                        onChange={e => setFormData({...formData, locationState: e.target.value})} 
-                        disabled={!formData.locationCountry}
-                     />
+	                     <SelectField 
+	                        label="State/Province" 
+	                        required={false}
+	                        options={formData.locationCountry ? (PROVINCES[formData.locationCountry] || []) : []} 
+	                        value={formData.locationState || ''} 
+	                        onChange={(e) => setFormData((prev) => ({ ...prev, locationState: e.target.value }))} 
+	                        disabled={!formData.locationCountry}
+	                     />
 	                     <div className="space-y-1">
 	                         <label htmlFor={cityId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
 	                           City <span className="text-red-500">*</span>
@@ -597,7 +612,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                             placeholder="Autocomplete..." 
 	                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm"
 	                             value={formData.locationCity || ''}
-	                             onChange={e => setFormData({...formData, locationCity: e.target.value})}
+	                             onChange={(e) => setFormData((prev) => ({ ...prev, locationCity: e.target.value }))}
 	                         />
 	                         <datalist id={cityListId}>
 	                             {MAJOR_CITIES.map(city => <option key={city} value={city} />)}
@@ -612,11 +627,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 </label>
                 <textarea 
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 text-sm" 
-                    rows={3}
-                    placeholder="Brief 3-sentence summary of the role..."
-                    value={formData.intelligenceSummary || ''} 
-                    onChange={e => setFormData({...formData, intelligenceSummary: e.target.value})} 
-                />
+	                    rows={3}
+	                    placeholder="Brief 3-sentence summary of the role..."
+	                    value={formData.intelligenceSummary || ''} 
+	                    onChange={(e) => setFormData((prev) => ({ ...prev, intelligenceSummary: e.target.value }))} 
+	                />
             </div>
           </section>
 
@@ -643,39 +658,39 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                       }));
                     }}
                   />
-                  <InputField
-                    label="External Source"
-                    value={formData.externalSource || ''}
-                    onChange={e => setFormData({ ...formData, externalSource: e.target.value })}
-                    placeholder="LinkedIn, Workday, Company Careers"
-                  />
+	                  <InputField
+	                    label="External Source"
+	                    value={formData.externalSource || ''}
+	                    onChange={(e) => setFormData((prev) => ({ ...prev, externalSource: e.target.value }))}
+	                    placeholder="LinkedIn, Workday, Company Careers"
+	                  />
                   <SelectField
                     label="Verification"
-                    required
-                    options={['Verified', 'Unverified']}
-                    value={(formData.isVerified ?? true) ? 'Verified' : 'Unverified'}
-                    onChange={e => setFormData({ ...formData, isVerified: e.target.value === 'Verified' })}
-                  />
+	                    required
+	                    options={['Verified', 'Unverified']}
+	                    value={(formData.isVerified ?? true) ? 'Verified' : 'Unverified'}
+	                    onChange={(e) => setFormData((prev) => ({ ...prev, isVerified: e.target.value === 'Verified' }))}
+	                  />
                   <SelectField
                     label="Status"
-                    required
-                    options={['pending', 'active', 'rejected', 'archived']}
-                    value={formData.status || 'pending'}
-                    onChange={e => setFormData({ ...formData, status: e.target.value as JobPosting['status'] })}
-                  />
+	                    required
+	                    options={['pending', 'active', 'rejected', 'archived']}
+	                    value={formData.status || 'pending'}
+	                    onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as JobPosting['status'] }))}
+	                  />
                   <InputField
                     label="Posted Date"
                     type="datetime-local"
-                    value={postedDateInput}
-                    onChange={e => {
-                      const localDate = e.target.value;
-                      setPostedDateInput(localDate);
-                      setFormData({
-                        ...formData,
-                        postedDate: localDate ? new Date(localDate).toISOString() : undefined
-                      });
-                    }}
-                  />
+	                    value={postedDateInput}
+	                    onChange={e => {
+	                      const localDate = e.target.value;
+	                      setPostedDateInput(localDate);
+	                      setFormData((prev) => ({
+	                        ...prev,
+	                        postedDate: localDate ? new Date(localDate).toISOString() : undefined
+	                      }));
+	                    }}
+	                  />
                 </div>
               </section>
               <hr className="border-gray-100" />
