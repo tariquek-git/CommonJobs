@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useId, useRef } from 'react';
 import { EmploymentType, JobPosting, JobSourceType, RemotePolicy } from '../types';
 import { COUNTRIES, PROVINCES, MAJOR_CITIES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
@@ -194,34 +194,58 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
   };
 
-  const InputField = ({ label, required, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
-    <div className="space-y-1">
-      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input 
-        required={required}
-        {...props}
-        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400" 
-      />
-    </div>
-  );
+  const InputField = ({ label, required, id, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => {
+    const autoId = useId();
+    const inputId = id || `field-${autoId}`;
 
-  const SelectField = ({ label, required, options, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string, options: string[] }) => (
-    <div className="space-y-1">
-      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <select 
-        required={required}
-        {...props}
-        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
-      >
-        <option value="">Select...</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
+    return (
+      <div className="space-y-1">
+        <label htmlFor={inputId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        <input
+          id={inputId}
+          name={props.name || inputId}
+          required={required}
+          {...props}
+          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400"
+        />
+      </div>
+    );
+  };
+
+  const SelectField = ({
+    label,
+    required,
+    options,
+    id,
+    ...props
+  }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string; options: string[] }) => {
+    const autoId = useId();
+    const selectId = id || `field-${autoId}`;
+
+    return (
+      <div className="space-y-1">
+        <label htmlFor={selectId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        <select
+          id={selectId}
+          name={props.name || selectId}
+          required={required}
+          {...props}
+          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+        >
+          <option value="">Select...</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
 
   if (isSubmitted) {
       return (
