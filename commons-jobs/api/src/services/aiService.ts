@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
-export const createAiService = (apiKey?: string) => {
+export const createAiService = (apiKey?: string, model = 'gemini-1.5-flash') => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
   const analyzeJobDescription = async (description: string) => {
@@ -7,7 +7,7 @@ export const createAiService = (apiKey?: string) => {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model,
         contents: `Extract structured job metadata and a concise summary from this posting:\n\n${description.slice(0, 8000)}`,
         config: {
           responseMimeType: 'application/json',
@@ -43,7 +43,7 @@ export const createAiService = (apiKey?: string) => {
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model,
         contents: `Translate this job search query to filter JSON: ${query}`,
         config: {
           responseMimeType: 'application/json',

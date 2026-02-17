@@ -27,7 +27,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
     trustProxy: appEnv.TRUST_PROXY
   });
   const allowedOrigins = parseAllowedOrigins(appEnv.CLIENT_ORIGIN);
-  const aiService = createAiService(appEnv.GEMINI_API_KEY);
+  const aiService = createAiService(appEnv.GEMINI_API_KEY, appEnv.GEMINI_MODEL);
   const clickDedupeWindow = Math.max(1, appEnv.CLICK_DEDUPE_WINDOW_MS);
   const clickDedupe = new Map<string, number>();
 

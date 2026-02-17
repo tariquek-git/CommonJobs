@@ -33,6 +33,7 @@ const envSchema = z.object({
   ADMIN_PASSWORD_HASH: z.string().trim().optional(),
   ADMIN_TOKEN_SECRET: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().trim().min(1).default('gemini-1.5-flash'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   RATE_LIMIT_MAX_SUBMIT: z.coerce.number().default(20),
   RATE_LIMIT_MAX_ADMIN_LOGIN: z.coerce.number().default(30),
