@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
-export const createAiService = (apiKey?: string, model = 'gemini-1.5-flash') => {
+export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
   const analyzeJobDescription = async (description: string) => {

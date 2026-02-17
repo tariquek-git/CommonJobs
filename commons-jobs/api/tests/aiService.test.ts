@@ -19,13 +19,12 @@ vi.mock('@google/genai', () => ({
 describe('createAiService', () => {
   it('uses the configured model when calling Gemini', async () => {
     const { createAiService } = await import('../src/services/aiService.js');
-    const service = createAiService('fake-key', 'gemini-1.5-flash');
+    const service = createAiService('fake-key', 'gemini-flash-latest');
 
     await service.analyzeJobDescription('Some job description.');
 
     expect(generateContentMock).toHaveBeenCalled();
     const call = generateContentMock.mock.calls[0]?.[0] as { model?: string };
-    expect(call.model).toBe('gemini-1.5-flash');
+    expect(call.model).toBe('gemini-flash-latest');
   });
 });
-
