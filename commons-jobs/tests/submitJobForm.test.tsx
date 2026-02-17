@@ -41,10 +41,40 @@ describe('SubmitJobForm', () => {
       expect(screen.getByText('Submission Received')).toBeTruthy();
     });
     expect(screen.getByText('job-123')).toBeTruthy();
+    expect(screen.getByText(/what happens next/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /submit another role/i })).toBeTruthy();
     expect(onSuccess).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: /back to browse/i }));
     expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an admin dashboard shortcut when provided', async () => {
+    submitJobMock.mockResolvedValueOnce('job-999');
+    const onSuccess = vi.fn();
+    const onOpenAdminDashboard = vi.fn();
+
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(
+      <SubmitJobForm onSuccess={onSuccess} onOpenTerms={vi.fn()} onOpenAdminDashboard={onOpenAdminDashboard} />
+    );
+
+    fireEvent.change(screen.getByLabelText(/link to apply/i), { target: { value: 'https://example.com/apply' } });
+    fireEvent.change(screen.getByLabelText(/role title/i), { target: { value: 'Backend Engineer' } });
+    fireEvent.change(screen.getByLabelText(/company name/i), { target: { value: 'Test Co' } });
+    fireEvent.change(screen.getByLabelText(/country/i), { target: { value: 'Canada' } });
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Toronto' } });
+    fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'Alice' } });
+    fireEvent.change(screen.getByLabelText(/your email/i), { target: { value: 'alice@example.com' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Submission Received')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /open admin dashboard/i }));
+    expect(onOpenAdminDashboard).toHaveBeenCalledTimes(1);
   });
 
   it('renders API error messages', async () => {

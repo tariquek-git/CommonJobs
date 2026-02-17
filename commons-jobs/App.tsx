@@ -228,9 +228,15 @@ const App: React.FC = () => {
     if (currentView === 'faq') {
       return <FAQ onBack={() => setCurrentView('browse')} />;
     }
-    if (currentView === 'submit') {
-      return <SubmitJobForm onSuccess={() => setCurrentView('browse')} onOpenTerms={() => setCurrentView('terms')} />;
-    }
+	    if (currentView === 'submit') {
+	      return (
+	        <SubmitJobForm
+	          onSuccess={() => setCurrentView('browse')}
+	          onOpenTerms={() => setCurrentView('terms')}
+	          onOpenAdminDashboard={isAdmin ? () => setCurrentView('admin') : undefined}
+	        />
+	      );
+	    }
     
     // Browse View
     return (

@@ -9,6 +9,7 @@ import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 interface SubmitJobFormProps {
   onSuccess: () => void;
   onOpenTerms: () => void;
+  onOpenAdminDashboard?: () => void;
   initialData?: JobPosting;
   isAdminMode?: boolean;
   defaultSourceType?: JobSourceType;
@@ -22,13 +23,14 @@ const toDateTimeLocal = (isoDate?: string): string => {
   return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
 };
 
-	const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
+const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   onSuccess,
   onOpenTerms,
+  onOpenAdminDashboard,
   initialData,
   isAdminMode = false,
   defaultSourceType = 'Direct' as JobSourceType
-	}) => {
+}) => {
   const isEditing = !!initialData;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
@@ -43,8 +45,9 @@ const toDateTimeLocal = (isoDate?: string): string => {
   
 	  const jdInputRef = useRef<HTMLTextAreaElement>(null);
 	  const applyLinkId = useId();
-	  const cityId = useId();
-	  const cityListId = `major-cities-${cityId}`;
+  const cityId = useId();
+  const cityListId = `major-cities-${cityId}`;
+  const showAdminShortcut = Boolean(onOpenAdminDashboard);
 
 	  const scrollToTop = () => {
 	    try {
@@ -290,6 +293,17 @@ const toDateTimeLocal = (isoDate?: string): string => {
 	                      : "Your post is now in the review queue. It won’t appear publicly until an admin approves it.")}
 	              </p>
 
+	              {!isEditing && !isAdminMode && (
+	                <div className="text-left bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+	                  <div className="text-xs font-bold text-blue-900 uppercase tracking-wide mb-2">What happens next</div>
+	                  <ul className="text-sm text-blue-900 space-y-1">
+	                    <li>1. Your submission is queued for admin review.</li>
+	                    <li>2. Typical review time: 24 hours (up to 48 hours during high volume).</li>
+	                    <li>3. Once approved, it becomes visible on the public board.</li>
+	                  </ul>
+	                </div>
+	              )}
+
 	              {submittedJobId && (
 	                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6 text-left">
 	                  <div className="font-bold text-gray-700 mb-1">Reference ID</div>
@@ -310,13 +324,6 @@ const toDateTimeLocal = (isoDate?: string): string => {
 	              )}
 
 	              <div className="flex flex-col gap-3 items-center">
-	                <button
-	                  type="button"
-	                  onClick={onSuccess}
-	                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
-	                >
-	                  {isEditing || isAdminMode ? 'Back to Dashboard' : 'Back to Browse'}
-	                </button>
 	                {!isEditing && (
 	                  <button
 	                    type="button"
@@ -326,16 +333,34 @@ const toDateTimeLocal = (isoDate?: string): string => {
 	                      setFormData(getInitialState(defaultSourceType));
 	                      setPostedDateInput('');
 	                      setJdText('');
-	                    setSubmitterName('');
-	                    setSubmitterEmail('');
-	                    setError(null);
+	                      setSubmitterName('');
+	                      setSubmitterEmail('');
+	                      setError(null);
 	                      scrollToTop();
 	                    }}
-	                    className="text-sm font-bold text-blue-600 hover:text-blue-800"
+	                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
 	                  >
 	                    {isAdminMode ? 'Create Another Job' : 'Submit Another Role'}
 	                  </button>
 	                )}
+
+	                {showAdminShortcut && (
+	                  <button
+	                    type="button"
+	                    onClick={onOpenAdminDashboard}
+	                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-white text-gray-900 text-sm font-bold border border-gray-200 hover:bg-gray-50 transition-colors"
+	                  >
+	                    Open Admin Dashboard
+	                  </button>
+	                )}
+
+	                <button
+	                  type="button"
+	                  onClick={onSuccess}
+	                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-white text-gray-900 text-sm font-bold border border-gray-200 hover:bg-gray-50 transition-colors"
+	                >
+	                  {isEditing || isAdminMode ? 'Back to Dashboard' : 'Back to Browse'}
+	                </button>
 	              </div>
 	          </div>
 	      );
