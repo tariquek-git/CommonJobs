@@ -1,5 +1,5 @@
 
-import React, { useId, useState } from 'react';
+import React, { useState } from 'react';
 import { JobPosting } from '../types';
 import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot } from 'lucide-react';
 import { getPostedAgeDays, getPostedDateLabel } from '../utils/dateLabel';
@@ -12,8 +12,6 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const [imgError, setImgError] = useState(false);
-  const titleId = useId();
-  const companyId = useId();
 
   const getLocationString = () => {
     const parts = [];
@@ -39,7 +37,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         type="button"
         onClick={() => onSelect(job)}
         className="w-full h-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 rounded-lg"
-        aria-labelledby={`${titleId} ${companyId}`}
       >
       
       {/* Top: Logo & Meta */}
@@ -76,14 +73,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Main Info */}
       <div className="mb-4">
-        <h3
-          id={titleId}
-          className="font-bold text-gray-900 text-lg leading-tight mb-1.5 group-hover:text-blue-600 transition-colors"
-          title={job.roleTitle}
-        >
+        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1.5 group-hover:text-blue-600 transition-colors" title={job.roleTitle}>
             {job.roleTitle}
         </h3>
-        <div id={companyId} className="text-sm font-medium text-gray-600 truncate flex items-center gap-1">
+        <div className="text-sm font-medium text-gray-600 truncate flex items-center gap-1">
             {job.companyName}
         </div>
       </div>
