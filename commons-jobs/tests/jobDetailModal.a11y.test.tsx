@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import JobDetailModal from '../components/JobDetailModal';
 import { JobPosting } from '../types';
 
@@ -23,12 +24,22 @@ const baseJob: JobPosting = {
 };
 
 describe('JobDetailModal accessibility', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders with dialog semantics and labeled close button', () => {
     render(<JobDetailModal job={baseJob} onClose={() => {}} />);
 
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByRole('button', { name: 'Close job details' })).toBeTruthy();
+  });
+
+  it('focuses the close button on mount', () => {
+    render(<JobDetailModal job={baseJob} onClose={() => {}} />);
+    const close = screen.getByRole('button', { name: 'Close job details' });
+    expect(document.activeElement).toBe(close);
   });
 
   it('closes on Escape key press', () => {

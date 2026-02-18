@@ -1,5 +1,5 @@
 
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { JobPosting } from '../types';
 import { trackClick } from '../services/jobService';
 import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap } from 'lucide-react';
@@ -14,10 +14,13 @@ interface JobDetailModalProps {
 const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
   const [imgError, setImgError] = useState(false);
   const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Prevent background scrolling when modal is open
     document.body.style.overflow = 'hidden';
+    // Give keyboard users a deterministic starting point.
+    closeButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -91,6 +94,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                   <button
                     type="button"
                     onClick={onClose}
+                    ref={closeButtonRef}
                     className="text-gray-400 hover:text-gray-600 p-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
                     aria-label="Close job details"
                   >

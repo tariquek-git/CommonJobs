@@ -47,6 +47,6 @@ describe('App admin navigation', () => {
     if (!adminButton) throw new Error('Admin Dashboard button not found');
     fireEvent.click(adminButton);
 
-    expect(screen.getByText('ADMIN_DASHBOARD')).toBeTruthy();
+    expect(await screen.findByText('ADMIN_DASHBOARD')).toBeTruthy();
   });
 });

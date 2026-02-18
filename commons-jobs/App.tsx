@@ -1,20 +1,21 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from './components/Header';
 import JobFilters from './components/JobFilters';
 import JobCard from './components/JobCard';
-import SubmitJobForm from './components/SubmitJobForm';
-import AdminDashboard from './components/AdminDashboard';
-import DataTerms from './components/DataTerms';
-import WhyWhoWhat from './components/WhyWhoWhat';
-import FAQ from './components/FAQ';
-import JobDetailModal from './components/JobDetailModal';
 import { JobFilterState, JobPosting } from './types';
 import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
+
+const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const DataTerms = React.lazy(() => import('./components/DataTerms'));
+const WhyWhoWhat = React.lazy(() => import('./components/WhyWhoWhat'));
+const FAQ = React.lazy(() => import('./components/FAQ'));
+const JobDetailModal = React.lazy(() => import('./components/JobDetailModal'));
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'browse' | 'submit' | 'admin' | 'terms' | 'about' | 'faq'>('browse');
@@ -37,10 +38,12 @@ const App: React.FC = () => {
 
   // Modal State
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
+  const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
   // AI Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const keywordDebounceRef = useRef<number | null>(null);
 
   const [filters, setFilters] = useState<JobFilterState>({
     keyword: '',
@@ -101,10 +104,10 @@ const App: React.FC = () => {
 
   }, [filters.keyword, selectedJob, feedType]);
 
-  const activeFilterCount = 
-    filters.remotePolicies.length + 
-    filters.employmentTypes.length + 
-    filters.seniorityLevels.length;
+  const activeFilterCount = useMemo(
+    () => filters.remotePolicies.length + filters.employmentTypes.length + filters.seniorityLevels.length,
+    [filters.employmentTypes.length, filters.remotePolicies.length, filters.seniorityLevels.length]
+  );
 
   useEffect(() => {
     if (!showAdminLogin) return;
@@ -156,22 +159,36 @@ const App: React.FC = () => {
   }, [filters, currentView, feedType, reloadNonce]);
 
   const handleSelectJob = useCallback((job: JobPosting) => {
+    lastActiveElementRef.current = (document.activeElement as HTMLElement) || null;
     setSelectedJob(job);
   }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
-    setFilters(prev => ({ ...prev, keyword: val }));
+    if (keywordDebounceRef.current) {
+      window.clearTimeout(keywordDebounceRef.current);
+    }
+    keywordDebounceRef.current = window.setTimeout(() => {
+      setFilters((prev) => ({ ...prev, keyword: val.trim() }));
+    }, 250);
   };
 
   const clearSearch = () => {
+      if (keywordDebounceRef.current) {
+        window.clearTimeout(keywordDebounceRef.current);
+        keywordDebounceRef.current = null;
+      }
       setSearchQuery('');
       setFilters(prev => ({ ...prev, keyword: '' }));
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchQuery.trim().length > 2) {
+        if (keywordDebounceRef.current) {
+          window.clearTimeout(keywordDebounceRef.current);
+          keywordDebounceRef.current = null;
+        }
         setIsProcessingAI(true);
         try {
 	            const parsedFilters = await parseSearchQuery(searchQuery);
@@ -434,18 +451,21 @@ const App: React.FC = () => {
 
       {/* Modal - Render at root */}
       {selectedJob && (
+        <Suspense fallback={null}>
           <JobDetailModal 
             job={selectedJob} 
             onClose={() => {
-                setSelectedJob(null);
-                // Clean up URL parameter on close
-                const params = new URLSearchParams(window.location.search);
-                params.delete('jobId');
-                const url = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
-                window.history.pushState({}, '', url);
-                document.title = 'Commons Jobs | Fintech Commons';
+              setSelectedJob(null);
+              // Clean up URL parameter on close
+              const params = new URLSearchParams(window.location.search);
+              params.delete('jobId');
+              const url = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+              window.history.pushState({}, '', url);
+              document.title = 'Commons Jobs | Fintech Commons';
+              setTimeout(() => lastActiveElementRef.current?.focus(), 0);
             }} 
           />
+        </Suspense>
       )}
 
       {/* Admin Login Modal */}
@@ -474,6 +494,7 @@ const App: React.FC = () => {
                         value={adminUsername}
                         onChange={e => setAdminUsername(e.target.value)}
                         autoComplete="username"
+                        autoFocus
                         required
                     />
                     <label htmlFor="admin-password" className="sr-only">Password</label>
@@ -484,7 +505,6 @@ const App: React.FC = () => {
                         className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-4 focus:ring-1 focus:ring-blue-600 outline-none"
                         value={adminPassword}
                         onChange={e => setAdminPassword(e.target.value)}
-                        autoFocus
                         autoComplete="current-password"
                         required
                     />
@@ -498,7 +518,16 @@ const App: React.FC = () => {
       )}
 
       <main id="main-content" className="flex-grow max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
-        {renderContent()}
+        <Suspense
+          fallback={
+            <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3" role="status" aria-live="polite">
+              <Loader2 className="animate-spin text-gray-300" size={32} />
+              <span>Loading…</span>
+            </div>
+          }
+        >
+          {renderContent()}
+        </Suspense>
       </main>
 
       <footer className="border-t border-gray-200 py-12 mt-16 bg-white">
