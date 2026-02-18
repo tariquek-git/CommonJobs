@@ -15,7 +15,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
           type="button"
           className="flex items-center gap-3 cursor-pointer group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2" 
           onClick={() => setCurrentView('browse')}
-          aria-label="Go to browse jobs"
         >
           <div className="bg-gray-900 text-white p-1.5 rounded-lg group-hover:bg-blue-600 transition-colors">
              <Hexagon size={20} strokeWidth={2.5} fill="currentColor" className="text-white/20" />

@@ -550,8 +550,15 @@ const App: React.FC = () => {
           </div>
 
 	          <div className="pt-4 max-w-xl mx-auto">
-	             <p className="text-xs text-gray-400">
-	                Email <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a> for edits or takedowns.
+	             <p className="text-xs text-gray-500">
+	                Email{' '}
+	                <a
+	                  href={`mailto:${CONTACT_EMAIL}`}
+	                  className="text-blue-700 underline underline-offset-2 hover:text-blue-800"
+	                >
+	                  {CONTACT_EMAIL}
+	                </a>{' '}
+	                for edits or takedowns.
 	             </p>
 	          </div>
         </div>
