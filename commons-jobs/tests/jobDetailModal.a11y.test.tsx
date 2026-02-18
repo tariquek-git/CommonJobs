@@ -34,6 +34,7 @@ describe('JobDetailModal accessibility', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByRole('button', { name: 'Close job details' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /report an issue/i })).toBeTruthy();
   });
 
   it('focuses the close button on mount', () => {

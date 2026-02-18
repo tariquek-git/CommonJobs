@@ -49,6 +49,7 @@ describe('SubmitJobForm', () => {
       expect(screen.getByText('Submission Received')).toBeTruthy();
     });
     expect(screen.getByText('job-123')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /send beta feedback/i })).toBeTruthy();
     expect(screen.getByText(/what happens next/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /submit another role/i })).toBeTruthy();
     expect(onSuccess).not.toHaveBeenCalled();

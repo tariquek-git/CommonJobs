@@ -159,6 +159,25 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 8. Active job clicks increment; non-active job clicks return not found.
 9. `/api/health` returns `{ ok: true }`.
 
+## Public Beta Tester Instructions (Copy/Paste)
+Public link:
+- `https://common-jobs.vercel.app`
+
+What to test:
+1. Browse and search for 1-2 roles.
+2. Open a role and click Apply (confirm it opens correctly).
+3. Post a role:
+   - Paste a JD link
+   - Paste JD text if needed
+   - Click "Generate Summary & Tags"
+   - Submit
+4. Report issues via the "Send beta feedback" link in the footer. Include:
+   - What you were trying to do
+   - Steps to reproduce
+   - Screenshot/video if possible
+   - Device/browser
+   - Submission Reference ID (if shown)
+
 ## Security Notes
 - No default secrets or credentials in runtime config.
 - Backend enforces server-side validation/sanitization.

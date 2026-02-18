@@ -6,6 +6,7 @@ import { analyzeJobDescription } from '../services/geminiService';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 import { CONTACT_EMAIL } from '../siteConfig';
+import { buildFeedbackMailto } from '../utils/feedbackMailto';
 
 interface SubmitJobFormProps {
   onSuccess: () => void;
@@ -413,10 +414,10 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                </div>
 	              )}
 
-	              {submittedJobId && (
-	                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6 text-left">
-	                  <div className="font-bold text-gray-700 mb-1">Reference ID</div>
-	                  <div className="font-mono text-gray-800 break-all">{submittedJobId}</div>
+		              {submittedJobId && (
+		                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-6 text-left">
+		                  <div className="font-bold text-gray-700 mb-1">Reference ID</div>
+		                  <div className="font-mono text-gray-800 break-all">{submittedJobId}</div>
 		                  {!isAdminMode && !isEditing && (
 		                    <div className="mt-2">
 		                      If you need to follow up, email{' '}
@@ -426,11 +427,17 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		                      >
 		                        {CONTACT_EMAIL}
 		                      </a>{' '}
-		                      and include this ID.
+		                      and include this ID.{' '}
+		                      <a
+		                        className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
+		                        href={buildFeedbackMailto({ submissionId: submittedJobId })}
+		                      >
+		                        Send beta feedback
+		                      </a>
 		                    </div>
 		                  )}
-	                </div>
-	              )}
+		                </div>
+		              )}
 
 	              <div className="flex flex-col gap-3 items-center">
 	                {!isEditing && (

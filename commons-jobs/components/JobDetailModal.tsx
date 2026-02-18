@@ -5,6 +5,7 @@ import { trackClick } from '../services/jobService';
 import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap } from 'lucide-react';
 import { getPostedDateLabel } from '../utils/dateLabel';
 import { getCompanyLogoUrl } from '../utils/companyLogo';
+import { buildFeedbackMailto } from '../utils/feedbackMailto';
 
 interface JobDetailModalProps {
   job: JobPosting;
@@ -168,8 +169,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
 
         {/* Sticky Footer */}
         <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0 flex items-center justify-between gap-4 z-20">
-            <div className="hidden md:block text-xs text-gray-400">
-                via {job.externalSource || 'Direct'}
+            <div className="hidden md:flex flex-col gap-1 text-xs text-gray-500">
+                <div>via {job.externalSource || 'Direct'}</div>
+                <a
+                  className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
+                  href={buildFeedbackMailto({ jobId: job.id, pageUrl: typeof window !== 'undefined' ? window.location.href : undefined })}
+                >
+                  Report an issue
+                </a>
             </div>
             <button 
                 type="button"
