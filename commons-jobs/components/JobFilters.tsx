@@ -108,7 +108,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({ filters, setFilters }) => {
             <button 
                 type="button"
                 onClick={clearFilters}
-                className="text-xs font-bold text-gray-400 hover:text-red-600 flex items-center gap-1"
+                className="text-xs font-bold text-gray-600 hover:text-red-700 flex items-center gap-1"
             >
                 <X size={12} /> Clear all filters
             </button>

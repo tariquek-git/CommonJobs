@@ -317,7 +317,7 @@ const App: React.FC = () => {
 	                              </button>
 	                            </div>
 	                        ) : (
-	                            <button type="button" onClick={() => setShowAdminLogin(true)} className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center gap-1 mt-2">
+	                            <button type="button" onClick={() => setShowAdminLogin(true)} className="text-xs font-bold text-gray-600 hover:text-gray-800 flex items-center gap-1 mt-2">
 	                                <Lock size={12} /> Admin Login
 	                            </button>
 	                        )}
