@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { CONTACT_EMAIL } from '../siteConfig';
 
 interface PageProps {
   onBack: () => void;
@@ -85,7 +86,13 @@ const DataTerms: React.FC<PageProps> = ({ onBack }) => {
         <section>
           <h2 className="text-xl font-bold text-gray-900 mb-3">No logins means manual edits</h2>
           <p>Because there are no accounts, you cannot log in later to edit your post.</p>
-          <p className="mt-2">If you need an edit or want something removed, email me at <a href="mailto:tariquek@gmail.com" className="text-blue-600 hover:underline">tariquek@gmail.com</a> and I’ll handle it manually.</p>
+          <p className="mt-2">
+            If you need an edit or want something removed, email me at{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-700 underline underline-offset-2 hover:text-blue-800">
+              {CONTACT_EMAIL}
+            </a>{' '}
+            and I’ll handle it manually.
+          </p>
         </section>
 
         <section>
@@ -105,7 +112,13 @@ const DataTerms: React.FC<PageProps> = ({ onBack }) => {
 
         <section>
           <h2 className="text-xl font-bold text-gray-900 mb-3">Questions, edits, or takedowns</h2>
-          <p>Email me at <a href="mailto:tariquek@gmail.com" className="text-blue-600 hover:underline">tariquek@gmail.com</a>.</p>
+          <p>
+            Email me at{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-700 underline underline-offset-2 hover:text-blue-800">
+              {CONTACT_EMAIL}
+            </a>
+            .
+          </p>
         </section>
       </div>
     </div>

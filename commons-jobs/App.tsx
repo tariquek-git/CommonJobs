@@ -9,6 +9,7 @@ import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
+import { buildFeedbackMailto } from './utils/feedbackMailto';
 
 const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
@@ -549,18 +550,24 @@ const App: React.FC = () => {
             </button>
           </div>
 
-	          <div className="pt-4 max-w-xl mx-auto">
-	             <p className="text-xs text-gray-500">
-	                Email{' '}
-	                <a
-	                  href={`mailto:${CONTACT_EMAIL}`}
-	                  className="text-blue-700 underline underline-offset-2 hover:text-blue-800"
-	                >
-	                  {CONTACT_EMAIL}
-	                </a>{' '}
-	                for edits or takedowns.
-	             </p>
-	          </div>
+		          <div className="pt-4 max-w-xl mx-auto">
+		             <p className="text-xs text-gray-500">
+		                Email{' '}
+		                <a
+		                  href={`mailto:${CONTACT_EMAIL}`}
+		                  className="text-blue-700 underline underline-offset-2 hover:text-blue-800"
+		                >
+		                  {CONTACT_EMAIL}
+		                </a>{' '}
+		                for edits or takedowns.{' '}
+		                <a
+		                  href={buildFeedbackMailto({ pageUrl: typeof window !== 'undefined' ? window.location.href : undefined })}
+		                  className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
+		                >
+		                  Send beta feedback
+		                </a>
+		             </p>
+		          </div>
         </div>
       </footer>
     </div>

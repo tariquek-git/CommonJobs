@@ -33,6 +33,7 @@ describe('App accessibility', () => {
 
     expect(screen.getByText('Skip to main content')).toBeTruthy();
     expect(screen.getByLabelText('Search jobs')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /send beta feedback/i })).toBeTruthy();
 
     const filtersButton = screen.getByRole('button', { name: /filters/i });
     expect(filtersButton.getAttribute('aria-expanded')).toBe('false');
