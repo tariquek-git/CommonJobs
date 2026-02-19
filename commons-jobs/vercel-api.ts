@@ -3,6 +3,7 @@ import { createRuntimeContext, stripApiPrefix, type RuntimeContext } from './api
 
 let runtime: RuntimeContext | null = null;
 let ready: PromiseLike<unknown> | null = null;
+const REQUEST_TIMEOUT_MS = 25_000;
 
 const getRuntime = (): { runtime: RuntimeContext; ready: PromiseLike<unknown> } => {
   if (!runtime || !ready) {
@@ -10,6 +11,47 @@ const getRuntime = (): { runtime: RuntimeContext; ready: PromiseLike<unknown> } 
     ready = runtime.app.ready();
   }
   return { runtime, ready };
+};
+
+const forwardToFastify = async (
+  req: IncomingMessage & { url?: string },
+  res: ServerResponse,
+  ctx: RuntimeContext
+): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Fastify response timed out after ${REQUEST_TIMEOUT_MS}ms`));
+    }, REQUEST_TIMEOUT_MS);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      res.off('finish', onFinish);
+      res.off('close', onClose);
+      res.off('error', onError);
+    };
+
+    const onFinish = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onClose = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+
+    res.once('finish', onFinish);
+    res.once('close', onClose);
+    res.once('error', onError);
+
+    ctx.app.server.emit('request', req, res);
+  });
 };
 
 const handler = async (
@@ -23,7 +65,7 @@ const handler = async (
   const attempt = async () => {
     const ctx = getRuntime();
     await ctx.ready;
-    ctx.runtime.app.server.emit('request', req, res);
+    await forwardToFastify(req, res, ctx.runtime);
   };
 
   try {
