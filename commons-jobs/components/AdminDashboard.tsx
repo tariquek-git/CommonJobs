@@ -108,6 +108,12 @@ const AdminDashboard: React.FC = () => {
                      </>
                    )}
                    {' '}· AI: <span className="font-semibold text-gray-700">{runtime.gemini.enabled ? runtime.gemini.model : 'disabled'}</span>
+                   {' '}· Storage Probe:{' '}
+                   <span className={`font-semibold ${runtime.storageProbe?.ok === false ? 'text-red-700' : 'text-gray-700'}`}>
+                     {runtime.storageProbe?.ok === false
+                       ? (runtime.storageProbe.error || 'failed')
+                       : (runtime.storageProbe?.totalJobs ?? 'ok')}
+                   </span>
                  </>
                ) : runtimeError ? (
                  runtimeError

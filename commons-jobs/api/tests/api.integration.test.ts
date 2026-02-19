@@ -154,7 +154,7 @@ describe('API integration', () => {
     await app.close();
   });
 
-  it('AI endpoints return 502 when Gemini call fails', async () => {
+  it('AI endpoints return heuristic fallback when Gemini call fails', async () => {
     const stubAi = {
       analyzeJobDescription: async () => null,
       parseSearchQuery: async () => null
@@ -173,7 +173,10 @@ describe('API integration', () => {
       url: '/ai/analyze-job',
       payload: { description: 'Test description' }
     });
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { result?: { summary?: string }; fallback?: boolean };
+    expect(body.fallback).toBe(true);
+    expect(typeof body.result?.summary).toBe('string');
 
     await app.close();
   });

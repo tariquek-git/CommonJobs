@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from '../src/config/env.js';
-import { createRepositories } from '../src/storage/repositoryFactory.js';
+import { createRepositories, resolveSupabaseServiceKey } from '../src/storage/repositoryFactory.js';
 import { FileClickRepository } from '../src/storage/fileClickRepository.js';
 import { FileJobRepository } from '../src/storage/fileJobRepository.js';
 import { SupabaseClickRepository } from '../src/storage/supabaseClickRepository.js';
@@ -45,5 +45,21 @@ describe('repositoryFactory', () => {
     expect(repos.provider).toBe('supabase');
     expect(repos.repository).toBeInstanceOf(SupabaseJobRepository);
     expect(repos.clickRepository).toBeInstanceOf(SupabaseClickRepository);
+  });
+
+  it('uses legacy secret fallback when configured key is a placeholder', () => {
+    const key = resolveSupabaseServiceKey('rotate-me', {
+      Vite_annon: 'sb_secret_fallback'
+    } as NodeJS.ProcessEnv);
+
+    expect(key).toBe('sb_secret_fallback');
+  });
+
+  it('keeps configured key when it already looks like a Supabase secret', () => {
+    const key = resolveSupabaseServiceKey('sb_secret_primary', {
+      Vite_annon: 'sb_secret_fallback'
+    } as NodeJS.ProcessEnv);
+
+    expect(key).toBe('sb_secret_primary');
   });
 });

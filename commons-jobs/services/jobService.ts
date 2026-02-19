@@ -159,6 +159,11 @@ export type AdminRuntimeInfo = {
   tables: { jobs: string; clicks: string };
   gemini: { enabled: boolean; model: string };
   env: { nodeEnv: string; trustProxy: boolean | number };
+  storageProbe?: {
+    ok: boolean;
+    totalJobs: number | null;
+    error: string | null;
+  };
   vercel: { gitCommitSha: string | null; deploymentId: string | null };
 };
 

@@ -1,4 +1,122 @@
 import { GoogleGenAI, Type } from '@google/genai';
+
+const compact = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
+const inferRemotePolicy = (text: string): string => {
+  const lower = text.toLowerCase();
+  if (lower.includes('hybrid')) return 'Hybrid';
+  if (lower.includes('remote')) return 'Remote';
+  if (lower.includes('onsite') || lower.includes('on-site') || lower.includes('on site')) return 'Onsite';
+  return '';
+};
+
+const inferEmploymentType = (text: string): string => {
+  const lower = text.toLowerCase();
+  if (lower.includes('full-time') || lower.includes('full time')) return 'Full-time';
+  if (lower.includes('contract')) return 'Contract';
+  if (lower.includes('intern')) return 'Internship';
+  return '';
+};
+
+const inferSeniority = (text: string): string => {
+  const lower = text.toLowerCase();
+  if (lower.includes('executive') || lower.includes('director') || lower.includes('vp')) return 'Executive';
+  if (lower.includes('lead') || lower.includes('principal') || lower.includes('staff')) return 'Lead';
+  if (lower.includes('senior') || lower.includes('sr.')) return 'Senior';
+  if (lower.includes('mid-level') || lower.includes('mid level') || lower.includes('intermediate')) return 'Mid-Level';
+  if (lower.includes('junior') || lower.includes('jr.')) return 'Junior';
+  return '';
+};
+
+const inferTags = (text: string): string[] => {
+  const tags: string[] = [];
+  const tagMatchers: Array<[string, RegExp]> = [
+    ['Payments', /\bpayments?\b/i],
+    ['Risk', /\brisk\b/i],
+    ['Compliance', /\bcompliance\b/i],
+    ['Product', /\bproduct\b/i],
+    ['Engineering', /\bengineer|engineering\b/i],
+    ['Analytics', /\banalytics?|analysis\b/i],
+    ['Fintech', /\bfintech\b/i],
+    ['SQL', /\bsql\b/i],
+    ['API', /\bapi(s)?\b/i]
+  ];
+
+  for (const [label, pattern] of tagMatchers) {
+    if (pattern.test(text)) tags.push(label);
+  }
+
+  return tags.slice(0, 8);
+};
+
+const buildSummary = (description: string): string => {
+  const cleaned = compact(description);
+  if (!cleaned) return '';
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
+  return compact(sentences.slice(0, 2).join(' ').slice(0, 360));
+};
+
+export const heuristicAnalyzeJobDescription = (description: string) => {
+  const cleaned = compact(description);
+  const locationMatch = cleaned.match(/\bin\s+([A-Za-z .'-]+),\s*([A-Za-z .'-]+?)(?:[.!?,;\n]|$)/i);
+  const hiringMatch = cleaned.match(/^([A-Za-z0-9& .'-]{2,80})\s+is hiring\s+(?:an?\s+)?([^.,\n]+)/i);
+
+  const roleTitle = hiringMatch?.[2]?.trim() || '';
+  const companyName = hiringMatch?.[1]?.trim() || '';
+  const locationCity = locationMatch?.[1]?.trim() || '';
+  const locationCountry = locationMatch?.[2]?.trim() || '';
+
+  return {
+    roleTitle,
+    companyName,
+    summary: buildSummary(cleaned),
+    locationCity,
+    locationState: '',
+    locationCountry,
+    remotePolicy: inferRemotePolicy(cleaned),
+    employmentType: inferEmploymentType(cleaned),
+    seniority: inferSeniority(cleaned),
+    salaryRange: '',
+    currency: '',
+    tags: inferTags(cleaned)
+  };
+};
+
+export const heuristicParseSearchQuery = (query: string) => {
+  const cleaned = compact(query);
+  const lower = cleaned.toLowerCase();
+
+  const remotePolicies: string[] = [];
+  if (lower.includes('remote')) remotePolicies.push('Remote');
+  if (lower.includes('hybrid')) remotePolicies.push('Hybrid');
+  if (lower.includes('onsite') || lower.includes('on-site') || lower.includes('on site')) remotePolicies.push('Onsite');
+
+  const employmentTypes: string[] = [];
+  if (lower.includes('full-time') || lower.includes('full time')) employmentTypes.push('Full-time');
+  if (lower.includes('contract')) employmentTypes.push('Contract');
+  if (lower.includes('intern')) employmentTypes.push('Internship');
+
+  const seniorityLevels: string[] = [];
+  if (lower.includes('junior') || lower.includes('jr')) seniorityLevels.push('Junior');
+  if (lower.includes('mid')) seniorityLevels.push('Mid-Level');
+  if (lower.includes('senior') || lower.includes('sr')) seniorityLevels.push('Senior');
+  if (lower.includes('lead') || lower.includes('principal') || lower.includes('staff')) seniorityLevels.push('Lead');
+  if (lower.includes('executive') || lower.includes('director') || lower.includes('vp')) seniorityLevels.push('Executive');
+
+  let dateRange = 'all';
+  if (/\b(today|24h|last 24 hours)\b/i.test(lower)) dateRange = '24h';
+  else if (/\b(7d|7 days|week)\b/i.test(lower)) dateRange = '7d';
+  else if (/\b(30d|30 days|month)\b/i.test(lower)) dateRange = '30d';
+
+  return {
+    keyword: cleaned,
+    remotePolicies,
+    employmentTypes,
+    seniorityLevels,
+    dateRange
+  };
+};
+
 export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 

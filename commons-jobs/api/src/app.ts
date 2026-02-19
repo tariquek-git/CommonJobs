@@ -18,7 +18,7 @@ import {
 } from './services/jobValidation.js';
 import { ClickRepository } from './storage/clickRepository.js';
 import { JobRepository } from './storage/jobRepository.js';
-import { createAiService } from './services/aiService.js';
+import { createAiService, heuristicAnalyzeJobDescription, heuristicParseSearchQuery } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
 export const buildApp = (
@@ -222,6 +222,27 @@ export const buildApp = (
       return unauthorized(reply);
     }
 
+    const storageProbe: {
+      ok: boolean;
+      totalJobs: number | null;
+      error: string | null;
+    } = {
+      ok: true,
+      totalJobs: null,
+      error: null
+    };
+
+    try {
+      const jobs = await repository.list();
+      storageProbe.totalJobs = jobs.length;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown storage error';
+      storageProbe.ok = false;
+      storageProbe.error = message;
+      app.log.error({ err: error }, 'Admin runtime storage probe failed');
+      console.error('Admin runtime storage probe failed:', message);
+    }
+
     // Intentionally omit secrets; this is for deployment/debug visibility only.
     return {
       ok: true,
@@ -238,6 +259,7 @@ export const buildApp = (
         nodeEnv: appEnv.NODE_ENV,
         trustProxy: appEnv.TRUST_PROXY
       },
+      storageProbe,
       vercel: {
         gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
         deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null
@@ -359,8 +381,10 @@ export const buildApp = (
     const body = (request.body || {}) as { description?: string };
     if (!body.description) return badRequest(reply, 'Description required');
     const result = await aiService.analyzeJobDescription(body.description);
-    if (!result) return reply.status(502).send({ error: 'AI request failed' });
-    return { result };
+    if (!result) {
+      return { result: heuristicAnalyzeJobDescription(body.description), fallback: true };
+    }
+    return { result, fallback: false };
   });
 
   app.post('/ai/parse-search', async (request, reply) => {
@@ -378,8 +402,10 @@ export const buildApp = (
     const body = (request.body || {}) as { query?: string };
     if (!body.query) return badRequest(reply, 'Query required');
     const result = await aiService.parseSearchQuery(body.query);
-    if (!result) return reply.status(502).send({ error: 'AI request failed' });
-    return { result };
+    if (!result) {
+      return { result: heuristicParseSearchQuery(body.query), fallback: true };
+    }
+    return { result, fallback: false };
   });
 
   return app;
