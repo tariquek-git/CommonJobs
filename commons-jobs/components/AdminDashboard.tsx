@@ -15,6 +15,7 @@ const AdminDashboard: React.FC = () => {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'Direct' | 'Aggregated'>('all');
   const [editingJob, setEditingJob] = useState<JobPosting | null>(null);
   const [isCreatingJob, setIsCreatingJob] = useState(false);
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : null;
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -93,6 +94,8 @@ const AdminDashboard: React.FC = () => {
     return statusMatch && sourceMatch;
   });
 
+  const storageProbeFailed = runtime?.storageProbe?.ok === false;
+
   return (
     <div className="max-w-full">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -111,8 +114,8 @@ const AdminDashboard: React.FC = () => {
                    {' '}· Storage Probe:{' '}
                    <span className={`font-semibold ${runtime.storageProbe?.ok === false ? 'text-red-700' : 'text-gray-700'}`}>
                      {runtime.storageProbe?.ok === false
-                       ? (runtime.storageProbe.error || 'failed')
-                       : (runtime.storageProbe?.totalJobs ?? 'ok')}
+                       ? 'failed'
+                       : `${runtime.storageProbe?.totalJobs ?? 0} jobs`}
                    </span>
                  </>
                ) : runtimeError ? (
@@ -146,6 +149,18 @@ const AdminDashboard: React.FC = () => {
              </div>
            </div>
       </div>
+
+      {storageProbeFailed && runtime && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          <div className="font-bold mb-1">Storage probe failed</div>
+          <p className="mb-2">{runtime.storageProbe?.error || 'Unknown storage error.'}</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Verify `SUPABASE_SERVICE_ROLE_KEY` is current and valid.</li>
+            <li>Verify table names match env: `{runtime.tables.jobs}` and `{runtime.tables.clicks}`.</li>
+            <li>Verify `CLIENT_ORIGIN` includes the active origin `{currentOrigin || 'unknown'}`.</li>
+          </ul>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-4">
           {(['all', 'Direct', 'Aggregated'] as const).map(source => (
