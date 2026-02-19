@@ -1,6 +1,6 @@
 import { JobPosting, JobFilterState, JobStatus } from '../types';
+import { requestJson, requestVoid } from './apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const ADMIN_TOKEN_KEY = 'commons_jobs_admin_token';
 const JOB_SEARCH_CACHE_TTL_MS = 15_000;
 
@@ -15,48 +15,19 @@ const jobSearchCache = new Map<string, CacheEntry>();
 const buildJobsCacheKey = (filters: JobFilterState, feedType: FeedType): string =>
   JSON.stringify({ filters, feedType });
 
-const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers || {})
-    }
-  });
-
-  let body: unknown = null;
-  try {
-    body = await response.json();
-  } catch {
-    // non-json response
-  }
-
-  if (!response.ok) {
-    const message = typeof body === 'object' && body !== null && 'error' in body
-      ? String((body as { error?: string }).error || '')
-      : '';
-    throw new Error(message || `Request failed (${response.status})`);
-  }
-
-  return body as T;
-};
-
-const adminHeaders = (): HeadersInit => {
+const getAdminToken = (): string => {
   const token = getToken();
   if (!token) {
     throw new Error('Admin session expired. Please log in again.');
   }
-
-  return {
-    Authorization: `Bearer ${token}`
-  };
+  return token;
 };
 
 export const hasAdminSession = (): boolean => Boolean(getToken());
 
 export const getJobById = async (id: string): Promise<JobPosting | undefined> => {
   try {
-    const data = await apiFetch<{ job: JobPosting }>(`/jobs/${id}`);
+    const data = await requestJson<{ job: JobPosting }>(`/jobs/${id}`, { method: 'GET', retry: 1 });
     return data.job;
   } catch {
     return undefined;
@@ -74,9 +45,9 @@ export const getJobs = async (
     return cached.jobs;
   }
 
-  const data = await apiFetch<{ jobs: JobPosting[] }>('/jobs/search', {
+  const data = await requestJson<{ jobs: JobPosting[] }>('/jobs/search', {
     method: 'POST',
-    body: JSON.stringify({ filters, feedType }),
+    body: { filters, feedType },
     signal
   });
 
@@ -93,9 +64,9 @@ type NewJobPayload =
   Partial<Pick<JobPosting, 'postedDate' | 'status' | 'clicks'>>;
 
 export const submitJob = async (jobData: NewJobPayload): Promise<string> => {
-  const data = await apiFetch<{ ok: true; jobId: string }>('/jobs/submissions', {
+  const data = await requestJson<{ ok: true; jobId: string }>('/jobs/submissions', {
     method: 'POST',
-    body: JSON.stringify(jobData)
+    body: jobData
   });
 
   jobSearchCache.clear();
@@ -106,10 +77,10 @@ export const submitJob = async (jobData: NewJobPayload): Promise<string> => {
 };
 
 export const createAdminJob = async (jobData: NewJobPayload): Promise<JobPosting> => {
-  const data = await apiFetch<{ job: JobPosting }>('/admin/jobs', {
+  const data = await requestJson<{ job: JobPosting }>('/admin/jobs', {
     method: 'POST',
-    headers: adminHeaders(),
-    body: JSON.stringify(jobData)
+    token: getAdminToken(),
+    body: jobData
   });
 
   jobSearchCache.clear();
@@ -118,7 +89,7 @@ export const createAdminJob = async (jobData: NewJobPayload): Promise<JobPosting
 
 export const trackClick = (id: string) => {
   // Intentionally fire-and-forget for UX responsiveness.
-  void fetch(`${API_BASE_URL}/jobs/${id}/click`, {
+  void requestVoid(`/jobs/${id}/click`, {
     method: 'POST',
     keepalive: true
   });
@@ -126,9 +97,9 @@ export const trackClick = (id: string) => {
 
 export const adminLogin = async (username: string, password: string): Promise<boolean> => {
   try {
-    const data = await apiFetch<{ token: string }>('/auth/admin-login', {
+    const data = await requestJson<{ token: string }>('/auth/admin-login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: { username, password }
     });
 
     if (!data.token) return false;
@@ -145,9 +116,10 @@ export const adminLogout = () => {
 };
 
 export const getAdminJobs = async (): Promise<JobPosting[]> => {
-  const data = await apiFetch<{ jobs: JobPosting[] }>('/admin/jobs', {
+  const data = await requestJson<{ jobs: JobPosting[] }>('/admin/jobs', {
     method: 'GET',
-    headers: adminHeaders()
+    token: getAdminToken(),
+    retry: 1
   });
 
   return data.jobs;
@@ -168,26 +140,27 @@ export type AdminRuntimeInfo = {
 };
 
 export const getAdminRuntime = async (): Promise<AdminRuntimeInfo> => {
-  return apiFetch<AdminRuntimeInfo>('/admin/runtime', {
+  return requestJson<AdminRuntimeInfo>('/admin/runtime', {
     method: 'GET',
-    headers: adminHeaders()
+    token: getAdminToken(),
+    retry: 1
   });
 };
 
 export const updateJobStatus = async (id: string, status: JobStatus): Promise<void> => {
-  await apiFetch(`/admin/jobs/${id}/status`, {
+  await requestJson(`/admin/jobs/${id}/status`, {
     method: 'PATCH',
-    headers: adminHeaders(),
-    body: JSON.stringify({ status })
+    token: getAdminToken(),
+    body: { status }
   });
   jobSearchCache.clear();
 };
 
 export const updateJob = async (updatedJob: JobPosting): Promise<void> => {
-  await apiFetch(`/admin/jobs/${updatedJob.id}`, {
+  await requestJson(`/admin/jobs/${updatedJob.id}`, {
     method: 'PATCH',
-    headers: adminHeaders(),
-    body: JSON.stringify(updatedJob)
+    token: getAdminToken(),
+    body: updatedJob
   });
   jobSearchCache.clear();
 };

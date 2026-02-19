@@ -1,5 +1,4 @@
-// Browser-safe default for Vercel: API routes are served under /api.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+import { requestJson } from './apiClient';
 
 export interface ParsedSearchFilters {
   keyword?: string;
@@ -14,37 +13,32 @@ export interface AiEndpointResult<T> {
   fallback: boolean;
 }
 
-const postJson = async <T>(path: string, payload: unknown): Promise<T | null> => {
+export const analyzeJobDescription = async (description: string) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const payload = await requestJson<AiEndpointResult<Record<string, unknown>>>('/ai/analyze-job', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+      body: { description }
     });
-
-    if (!response.ok) return null;
-    return (await response.json()) as T;
+    return {
+      result: payload.result || null,
+      fallback: Boolean(payload.fallback)
+    };
   } catch {
     return null;
   }
 };
 
-export const analyzeJobDescription = async (description: string) => {
-  const payload = await postJson<AiEndpointResult<Record<string, unknown>>>('/ai/analyze-job', { description });
-  if (!payload) return null;
-  return {
-    result: payload.result || null,
-    fallback: Boolean(payload.fallback)
-  };
-};
-
 export const parseSearchQuery = async (query: string) => {
-  const payload = await postJson<AiEndpointResult<ParsedSearchFilters>>('/ai/parse-search', { query });
-  if (!payload) return null;
-  return {
-    result: payload.result || null,
-    fallback: Boolean(payload.fallback)
-  };
+  try {
+    const payload = await requestJson<AiEndpointResult<ParsedSearchFilters>>('/ai/parse-search', {
+      method: 'POST',
+      body: { query }
+    });
+    return {
+      result: payload.result || null,
+      fallback: Boolean(payload.fallback)
+    };
+  } catch {
+    return null;
+  }
 };
