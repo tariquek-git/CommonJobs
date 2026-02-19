@@ -7,7 +7,11 @@ describe('getCompanyLogoUrl', () => {
   });
 
   it('falls back to external link when company website is missing', () => {
-    expect(getCompanyLogoUrl(undefined, 'jobs.example.com/apply')).toBe('https://www.google.com/s2/favicons?domain=jobs.example.com&sz=64');
+    expect(getCompanyLogoUrl(undefined, 'https://jobs.lever.co/wealthsimple/123')).toBe('https://www.google.com/s2/favicons?domain=jobs.lever.co&sz=64');
+  });
+
+  it('returns null for placeholder domains to avoid noisy 404 logo requests', () => {
+    expect(getCompanyLogoUrl(undefined, 'jobs.example.com/apply')).toBeNull();
   });
 
   it('returns null for malformed urls', () => {
