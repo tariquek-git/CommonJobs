@@ -590,13 +590,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
       
       {/* Toast */}
-      {scrapeToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 w-[90%] md:w-auto animate-fade-in">
-            <AlertCircle size={18} className="text-yellow-400 shrink-0" />
-            <div className="text-sm font-medium">Auto-fill blocked by host. Please paste JD below.</div>
-            <button type="button" onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300" aria-label="Close message"><X size={16} /></button>
-        </div>
-      )}
+	      {scrapeToast && (
+	        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 w-[90%] md:w-auto animate-fade-in">
+	            <AlertCircle size={18} className="text-yellow-400 shrink-0" />
+	            <div className="text-sm font-medium">Auto-fill blocked by host. Paste JD below, then generate summary and continue submission.</div>
+	            <button type="button" onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300" aria-label="Close message"><X size={16} /></button>
+	        </div>
+	      )}
 
       <div className="p-6 border-b border-gray-100 bg-gray-50">
         <h2 className="text-xl font-bold text-gray-900 tracking-tight">
