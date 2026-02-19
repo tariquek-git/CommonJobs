@@ -267,7 +267,7 @@ const App: React.FC = () => {
     return (
       <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
         {/* Sidebar Filters */}
-        <aside className="w-full md:w-64 shrink-0">
+        <aside className="w-full md:w-64 shrink-0 md:sticky md:top-24 self-start">
             {/* Mobile Filter Toggle */}
             <button 
                 type="button"
@@ -289,7 +289,10 @@ const App: React.FC = () => {
             </button>
 
             {/* Filter Content */}
-            <div id="browse-filters-panel" className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none`}>
+            <div
+              id="browse-filters-panel"
+              className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pr-1`}
+            >
                 <div className="mb-8">
                     <JobFilters filters={filters} setFilters={setFilters} />
                 </div>
@@ -433,7 +436,7 @@ const App: React.FC = () => {
                             No {feedType === 'aggregated' ? 'Canadian' : ''} opportunities found matching your filters.
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-slide-up" aria-live="polite" aria-busy={loading}>
+                        <div className="jobs-grid grid gap-4 xl:gap-5 animate-slide-up" aria-live="polite" aria-busy={loading}>
                             {jobs.map(job => (
                                 <JobCard 
                                     key={job.id} 
@@ -529,7 +532,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main id="main-content" className="flex-grow max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <main id="main-content" className="flex-grow max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <Suspense
           fallback={
             <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3" role="status" aria-live="polite">
@@ -543,7 +546,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="border-t border-gray-200 py-12 mt-16 bg-white">
-        <div className="max-w-5xl mx-auto px-4 text-center space-y-6">
+        <div className="max-w-[1600px] mx-auto px-4 text-center space-y-6">
           <div className="flex items-center justify-center gap-3 text-[#0B132B] font-bold text-lg tracking-tight transition-all duration-500">
              <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B132B] shadow-[0_8px_20px_rgba(11,19,43,0.24)]">
                <Hexagon size={19} strokeWidth={2.3} className="text-[#2EC4B6]" />

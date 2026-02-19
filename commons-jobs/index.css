@@ -11,6 +11,16 @@
 }
 
 @layer utilities {
+  .jobs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 768px) {
+    .jobs-grid {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+  }
+
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
