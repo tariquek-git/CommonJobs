@@ -2,14 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "functions": {
-    "vercel-api.ts": {
+    "api/index.ts": {
       "runtime": "@vercel/node@5.3.24"
     }
   },
   "routes": [
     {
       "src": "^/api(?:/(.*))?$",
-      "dest": "/vercel-api"
+      "dest": "/api/index.ts"
     },
     {
       "handle": "filesystem"
