@@ -21,9 +21,10 @@ type InputFieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   required?: boolean;
   id?: string;
+  error?: string;
 };
 
-const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, ...props }) => {
+const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, error, ...props }) => {
   const autoId = useId();
   const inputId = id || `field-${autoId}`;
 
@@ -36,9 +37,18 @@ const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, ...p
         id={inputId}
         name={name || inputId}
         required={required}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
-        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400"
+        className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400 ${
+          error ? 'border-red-300' : 'border-gray-300'
+        }`}
       />
+      {error && (
+        <p id={`${inputId}-error`} className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 };
@@ -48,9 +58,10 @@ type SelectFieldProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
   options: string[];
   required?: boolean;
   id?: string;
+  error?: string;
 };
 
-const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id, name, ...props }) => {
+const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id, name, error, ...props }) => {
   const autoId = useId();
   const selectId = id || `field-${autoId}`;
 
@@ -63,8 +74,12 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id,
         id={selectId}
         name={name || selectId}
         required={required}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${selectId}-error` : undefined}
         {...props}
-        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+        className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm ${
+          error ? 'border-red-300' : 'border-gray-300'
+        }`}
       >
         <option value="">Select...</option>
         {options.map((o) => (
@@ -73,9 +88,25 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id,
           </option>
         ))}
       </select>
+      {error && (
+        <p id={`${selectId}-error`} className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 };
+
+type SubmissionFieldKey =
+  | 'externalLink'
+  | 'roleTitle'
+  | 'companyName'
+  | 'locationCountry'
+  | 'locationCity'
+  | 'submitterName'
+  | 'submitterEmail';
+
+type SubmissionFieldErrors = Partial<Record<SubmissionFieldKey, string>>;
 
 const toDateTimeLocal = (isoDate?: string): string => {
   if (!isoDate) return '';
@@ -101,6 +132,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [submittedJobId, setSubmittedJobId] = useState<string | null>(null);
   const [jdText, setJdText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<SubmissionFieldErrors>({});
+  const [aiFallbackNotice, setAiFallbackNotice] = useState(false);
   const [scrapeToast, setScrapeToast] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -148,6 +181,51 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [submitterEmail, setSubmitterEmail] = useState(initialData?.submitterEmail || '');
   const [postedDateInput, setPostedDateInput] = useState(toDateTimeLocal(initialData?.postedDate));
 
+  const clearFieldError = (field: SubmissionFieldKey) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const setFriendlySubmissionError = (rawMessage: string) => {
+    const message = rawMessage.trim();
+    const lower = message.toLowerCase();
+    const nextFieldErrors: SubmissionFieldErrors = {};
+
+    if (lower.includes('valid apply link') || lower.includes('apply link') || lower.includes('external link')) {
+      nextFieldErrors.externalLink = 'Enter a valid apply URL (must start with http:// or https://).';
+    }
+    if (lower.includes('valid email')) {
+      nextFieldErrors.submitterEmail = 'Use a valid email address for submission updates.';
+    }
+    if (lower.includes('company name and role title')) {
+      nextFieldErrors.companyName = 'Company name is required.';
+      nextFieldErrors.roleTitle = 'Role title is required.';
+    }
+    if (lower.includes('country and city')) {
+      nextFieldErrors.locationCountry = 'Country is required.';
+      nextFieldErrors.locationCity = 'City is required.';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+    }
+
+    if (lower.includes('invalid submission payload')) {
+      setError('Some required fields are missing or invalid. Check the highlighted fields and try again.');
+      return;
+    }
+    if (lower.includes('too many requests') || lower.includes('rate limit') || lower.includes('rate limited')) {
+      setError('Too many attempts right now. Please wait a minute and try again.');
+      return;
+    }
+
+    setError(message || 'Failed to submit job. Please try again.');
+  };
+
   // Auto-clear toast
   useEffect(() => {
     if (scrapeToast) {
@@ -158,6 +236,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCountry = e.target.value;
+    clearFieldError('locationCountry');
     setFormData(prev => ({
       ...prev,
       locationCountry: newCountry,
@@ -167,7 +246,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
   const handleLinkAutofill = async () => {
     if (!formData.externalLink) {
-        setError("Please enter a link first.");
+        setError('Please enter a link first.');
+        setFieldErrors((prev) => ({ ...prev, externalLink: 'Apply link is required before auto-fill.' }));
         return;
     }
     
@@ -271,8 +351,10 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
     setIsAnalyzing(true);
     setError(null);
+    setAiFallbackNotice(false);
     try {
-      const rawAnalysis = await analyzeJobDescription(jdText) as Record<string, unknown> | null;
+      const analysisResponse = await analyzeJobDescription(jdText);
+      const rawAnalysis = analysisResponse?.result ?? null;
       if (rawAnalysis) {
         const normalized = normalizeAIData(rawAnalysis);
         setFormData((prev) => ({
@@ -280,11 +362,12 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           ...normalized,
           intelligenceSummary: typeof rawAnalysis.summary === 'string' ? rawAnalysis.summary : prev.intelligenceSummary
         }));
+        setAiFallbackNotice(Boolean(analysisResponse?.fallback));
       } else {
-          setError("AI analysis failed. Please fill details manually.");
+          setError('AI analysis failed. Please fill details manually.');
       }
     } catch {
-      setError("Failed to analyze job description.");
+      setError('Failed to analyze job description.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -329,15 +412,33 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     const trimmedSubmitterName = submitterName.trim();
     const trimmedSubmitterEmail = submitterEmail.trim();
     const trimmedExternalLink = (formData.externalLink || '').trim();
-    const submitterRequiredMissing = !isAdminMode && (!trimmedSubmitterName || !trimmedSubmitterEmail);
-    
-    if (!formData.companyName?.trim() || 
-        !formData.roleTitle?.trim() || 
-        !trimmedExternalLink || 
-        !formData.locationCountry || 
-        !formData.locationCity?.trim() ||
-        submitterRequiredMissing) {
-      setError('Please fill in all mandatory fields.');
+    const nextFieldErrors: SubmissionFieldErrors = {};
+
+    if (!trimmedExternalLink) {
+      nextFieldErrors.externalLink = 'Apply link is required.';
+    }
+    if (!formData.roleTitle?.trim()) {
+      nextFieldErrors.roleTitle = 'Role title is required.';
+    }
+    if (!formData.companyName?.trim()) {
+      nextFieldErrors.companyName = 'Company name is required.';
+    }
+    if (!formData.locationCountry) {
+      nextFieldErrors.locationCountry = 'Country is required.';
+    }
+    if (!formData.locationCity?.trim()) {
+      nextFieldErrors.locationCity = 'City is required.';
+    }
+    if (!isAdminMode && !trimmedSubmitterName) {
+      nextFieldErrors.submitterName = 'Your name is required.';
+    }
+    if (!isAdminMode && !trimmedSubmitterEmail) {
+      nextFieldErrors.submitterEmail = 'Your email is required.';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setError('Please fix the highlighted fields before submitting.');
       scrollToTop();
       // Focus error for keyboard/screen reader users.
       setTimeout(() => errorRef.current?.focus(), 0);
@@ -345,6 +446,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
 
     setIsSubmitting(true);
+    setError(null);
+    setFieldErrors({});
     try {
       const payload: Partial<JobPosting> = {
         ...formData,
@@ -369,12 +472,12 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
       }
 	      
 	      setSubmittedJobId(newJobId);
-	      setIsSubmitted(true);
-	      scrollToTop();
-	      setTimeout(() => successHeadingRef.current?.focus(), 0);
+		      setIsSubmitted(true);
+		      scrollToTop();
+		      setTimeout(() => successHeadingRef.current?.focus(), 0);
 		    } catch (err) {
 		      const message = err instanceof Error ? err.message : 'Failed to submit job. Please try again.';
-		      setError(message);
+		      setFriendlySubmissionError(message);
 		      scrollToTop();
 		      setTimeout(() => errorRef.current?.focus(), 0);
 		    } finally {
@@ -452,6 +555,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                      setSubmitterName('');
 	                      setSubmitterEmail('');
 	                      setError(null);
+                        setFieldErrors({});
+                        setAiFallbackNotice(false);
 	                      scrollToTop();
 	                    }}
 	                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
@@ -535,28 +640,48 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 </button>
              </div>
              
-		             <input 
+			             <input 
 		                id={applyLinkId}
 		                required 
 		                type="url" 
 		                placeholder="https://company.com/jobs/..." 
-		                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base"
+		                className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base ${
+                      fieldErrors.externalLink ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    aria-invalid={Boolean(fieldErrors.externalLink)}
+                    aria-describedby={fieldErrors.externalLink ? `${applyLinkId}-error` : undefined}
 		                value={formData.externalLink || ''} 
-		                onChange={(e) => setFormData((prev) => ({ ...prev, externalLink: e.target.value }))} 
-		             />
+		                onChange={(e) => {
+                      clearFieldError('externalLink');
+                      setFormData((prev) => ({ ...prev, externalLink: e.target.value }));
+                    }} 
+			             />
+                {fieldErrors.externalLink && (
+                  <p id={`${applyLinkId}-error`} className="text-xs text-red-600">
+                    {fieldErrors.externalLink}
+                  </p>
+                )}
 
 	             {/* JD Paste Fallback */}
 	             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
 	                <label htmlFor={jdTextId} className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
 	                    Paste Job Description (Intelligence Engine)
 	                </label>
+                  {aiFallbackNotice && (
+                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      AI model unavailable, using fallback extraction.
+                    </div>
+                  )}
 	                <textarea
 	                    id={jdTextId}
 	                    ref={jdInputRef}
 	                    className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 min-h-[120px] bg-white placeholder:text-gray-400"
 	                    placeholder="If auto-fill fails, paste the full JD text here. The AI will extract role details, location, and tags for you."
 	                    value={jdText}
-	                    onChange={(e) => setJdText(e.target.value)}
+	                    onChange={(e) => {
+                        setAiFallbackNotice(false);
+                        setJdText(e.target.value);
+                      }}
 	                />
                 <button
                     type="button"
@@ -583,11 +708,29 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           <section className="space-y-6">
             <h3 className="text-sm font-bold text-gray-900">2. Role Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="md:col-span-2">
-	                 <InputField label="Role Title" required value={formData.roleTitle || ''} onChange={(e) => setFormData((prev) => ({ ...prev, roleTitle: e.target.value }))} />
+	              <div className="md:col-span-2">
+	                 <InputField
+                    label="Role Title"
+                    required
+                    value={formData.roleTitle || ''}
+                    error={fieldErrors.roleTitle}
+                    onChange={(e) => {
+                      clearFieldError('roleTitle');
+                      setFormData((prev) => ({ ...prev, roleTitle: e.target.value }));
+                    }}
+                  />
 	              </div>
 	
-	              <InputField label="Company Name" required value={formData.companyName || ''} onChange={(e) => setFormData((prev) => ({ ...prev, companyName: e.target.value }))} />
+	              <InputField
+                  label="Company Name"
+                  required
+                  value={formData.companyName || ''}
+                  error={fieldErrors.companyName}
+                  onChange={(e) => {
+                    clearFieldError('companyName');
+                    setFormData((prev) => ({ ...prev, companyName: e.target.value }));
+                  }}
+                />
 	              <InputField label="Company Website" value={formData.companyWebsite || ''} onChange={(e) => setFormData((prev) => ({ ...prev, companyWebsite: e.target.value }))} />
 	
 	              <SelectField label="Remote Policy" required options={Object.values(RemotePolicy)} value={formData.remotePolicy || ''} onChange={(e) => setFormData((prev) => ({ ...prev, remotePolicy: e.target.value as RemotePolicy }))} />
@@ -598,7 +741,14 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
             <div className="bg-white p-5 rounded-lg border border-gray-200 space-y-4">
                  <h4 className="text-xs font-bold text-gray-500 uppercase">Location Hierarchy</h4>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <SelectField label="Country" required options={COUNTRIES} value={formData.locationCountry || ''} onChange={handleCountryChange} />
+                     <SelectField
+                        label="Country"
+                        required
+                        options={COUNTRIES}
+                        value={formData.locationCountry || ''}
+                        error={fieldErrors.locationCountry}
+                        onChange={handleCountryChange}
+                     />
 	                     <SelectField 
 	                        label="State/Province" 
 	                        required={false}
@@ -611,17 +761,29 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                         <label htmlFor={cityId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
 	                           City <span className="text-red-500">*</span>
 	                         </label>
-	                         <input 
-	                             required
-	                             id={cityId}
-	                             type="text" 
-	                             list={cityListId}
-	                             placeholder="Autocomplete..." 
-	                             className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm"
-	                             value={formData.locationCity || ''}
-	                             onChange={(e) => setFormData((prev) => ({ ...prev, locationCity: e.target.value }))}
-	                         />
-	                         <datalist id={cityListId}>
+		                         <input 
+		                             required
+		                             id={cityId}
+		                             type="text" 
+		                             list={cityListId}
+		                             placeholder="Autocomplete..." 
+		                             className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm ${
+                                   fieldErrors.locationCity ? 'border-red-300' : 'border-gray-300'
+                                 }`}
+                               aria-invalid={Boolean(fieldErrors.locationCity)}
+                               aria-describedby={fieldErrors.locationCity ? `${cityId}-error` : undefined}
+		                             value={formData.locationCity || ''}
+		                             onChange={(e) => {
+                                   clearFieldError('locationCity');
+                                   setFormData((prev) => ({ ...prev, locationCity: e.target.value }));
+                                 }}
+		                         />
+                           {fieldErrors.locationCity && (
+                             <p id={`${cityId}-error`} className="text-xs text-red-600">
+                               {fieldErrors.locationCity}
+                             </p>
+                           )}
+		                         <datalist id={cityListId}>
 	                             {MAJOR_CITIES.map(city => <option key={city} value={city} />)}
 	                         </datalist>
 	                     </div>
@@ -710,19 +872,27 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 {isAdminMode ? '4. Contact Info (Optional)' : '3. Contact Info (Private)'}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputField
-                  label="Your Name"
-                  required={!isAdminMode}
-                  value={submitterName}
-                  onChange={e => setSubmitterName(e.target.value)}
-                />
-                <InputField
-                  label="Your Email"
-                  required={!isAdminMode}
-                  type="email"
-                  value={submitterEmail}
-                  onChange={e => setSubmitterEmail(e.target.value)}
-                />
+	                <InputField
+	                  label="Your Name"
+	                  required={!isAdminMode}
+                    error={fieldErrors.submitterName}
+	                  value={submitterName}
+	                  onChange={e => {
+                      clearFieldError('submitterName');
+                      setSubmitterName(e.target.value);
+                    }}
+	                />
+	                <InputField
+	                  label="Your Email"
+	                  required={!isAdminMode}
+	                  type="email"
+                    error={fieldErrors.submitterEmail}
+	                  value={submitterEmail}
+	                  onChange={e => {
+                      clearFieldError('submitterEmail');
+                      setSubmitterEmail(e.target.value);
+                    }}
+	                />
               </div>
           </section>
 

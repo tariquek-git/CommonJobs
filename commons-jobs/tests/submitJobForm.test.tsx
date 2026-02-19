@@ -102,7 +102,7 @@ describe('SubmitJobForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Rate limited');
+    expect(alert.textContent).toContain('Too many attempts right now');
   });
 
   it('trims submitter fields before sending to the API', async () => {
@@ -129,9 +129,12 @@ describe('SubmitJobForm', () => {
 
   it('keeps a valid default Remote Policy when AI returns an empty/invalid remotePolicy', async () => {
     analyzeJobDescriptionMock.mockResolvedValueOnce({
-      summary: 'Test summary',
-      remotePolicy: '',
-      companyName: null
+      result: {
+        summary: 'Test summary',
+        remotePolicy: '',
+        companyName: null
+      },
+      fallback: false
     });
 
     const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
@@ -156,9 +159,12 @@ describe('SubmitJobForm', () => {
 
   it('does not allow AI output to overwrite the apply link field', async () => {
     analyzeJobDescriptionMock.mockResolvedValueOnce({
-      summary: 'Test summary',
-      externalLink: 'not-a-url',
-      companyName: 'AI Co'
+      result: {
+        summary: 'Test summary',
+        externalLink: 'not-a-url',
+        companyName: 'AI Co'
+      },
+      fallback: false
     });
 
     const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
@@ -175,5 +181,45 @@ describe('SubmitJobForm', () => {
 
     const applyLink = screen.getByLabelText(/link to apply/i) as HTMLInputElement;
     expect(applyLink.value).toBe('https://example.com/apply');
+  });
+
+  it('shows AI fallback notice when the backend reports fallback mode', async () => {
+    analyzeJobDescriptionMock.mockResolvedValueOnce({
+      result: {
+        summary: 'Fallback summary',
+        companyName: 'Fallback Co',
+        roleTitle: 'Analyst'
+      },
+      fallback: true
+    });
+
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/paste job description/i), { target: { value: 'Fallback test JD' } });
+    fireEvent.click(screen.getByRole('button', { name: /generate summary & tags/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/ai model unavailable, using fallback extraction/i)).toBeTruthy();
+    });
+  });
+
+  it('maps invalid submission payload errors to actionable guidance', async () => {
+    submitJobMock.mockRejectedValueOnce(new Error('Invalid submission payload'));
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/link to apply/i), { target: { value: 'https://example.com/apply' } });
+    fireEvent.change(screen.getByLabelText(/role title/i), { target: { value: 'Backend Engineer' } });
+    fireEvent.change(screen.getByLabelText(/company name/i), { target: { value: 'Test Co' } });
+    fireEvent.change(screen.getByLabelText(/country/i), { target: { value: 'Canada' } });
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Toronto' } });
+    fireEvent.change(screen.getByLabelText(/your name/i), { target: { value: 'Alice' } });
+    fireEvent.change(screen.getByLabelText(/your email/i), { target: { value: 'alice@example.com' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Some required fields are missing or invalid');
   });
 });

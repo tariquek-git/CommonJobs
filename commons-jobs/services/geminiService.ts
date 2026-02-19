@@ -9,6 +9,11 @@ export interface ParsedSearchFilters {
   dateRange?: 'all' | '24h' | '7d' | '30d';
 }
 
+export interface AiEndpointResult<T> {
+  result: T | null;
+  fallback: boolean;
+}
+
 const postJson = async <T>(path: string, payload: unknown): Promise<T | null> => {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -27,11 +32,19 @@ const postJson = async <T>(path: string, payload: unknown): Promise<T | null> =>
 };
 
 export const analyzeJobDescription = async (description: string) => {
-  const result = await postJson<{ result: unknown }>('/ai/analyze-job', { description });
-  return result?.result || null;
+  const payload = await postJson<AiEndpointResult<Record<string, unknown>>>('/ai/analyze-job', { description });
+  if (!payload) return null;
+  return {
+    result: payload.result || null,
+    fallback: Boolean(payload.fallback)
+  };
 };
 
 export const parseSearchQuery = async (query: string) => {
-  const result = await postJson<{ result: ParsedSearchFilters | null }>('/ai/parse-search', { query });
-  return result?.result || null;
+  const payload = await postJson<AiEndpointResult<ParsedSearchFilters>>('/ai/parse-search', { query });
+  if (!payload) return null;
+  return {
+    result: payload.result || null,
+    fallback: Boolean(payload.fallback)
+  };
 };

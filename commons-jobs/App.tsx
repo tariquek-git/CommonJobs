@@ -44,6 +44,7 @@ const App: React.FC = () => {
   // AI Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [searchUsedFallback, setSearchUsedFallback] = useState(false);
   const keywordDebounceRef = useRef<number | null>(null);
 
   const [filters, setFilters] = useState<JobFilterState>({
@@ -167,6 +168,9 @@ const App: React.FC = () => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
+    if (!val.trim()) {
+      setSearchUsedFallback(false);
+    }
     if (keywordDebounceRef.current) {
       window.clearTimeout(keywordDebounceRef.current);
     }
@@ -181,6 +185,7 @@ const App: React.FC = () => {
         keywordDebounceRef.current = null;
       }
       setSearchQuery('');
+      setSearchUsedFallback(false);
       setFilters(prev => ({ ...prev, keyword: '' }));
   };
 
@@ -192,8 +197,9 @@ const App: React.FC = () => {
         }
         setIsProcessingAI(true);
         try {
-	            const parsedFilters = await parseSearchQuery(searchQuery);
-	            const normalized = normalizeParsedSearchFilters(parsedFilters);
+	            const parsedResponse = await parseSearchQuery(searchQuery);
+            setSearchUsedFallback(Boolean(parsedResponse?.fallback));
+	            const normalized = normalizeParsedSearchFilters(parsedResponse?.result ?? null);
 	            if (normalized) {
 	                setFilters(prev => ({
 	                    ...prev,
@@ -355,6 +361,11 @@ const App: React.FC = () => {
                       </div>
                   )}
                </div>
+               {searchUsedFallback && (
+                 <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                   AI model unavailable, using fallback extraction.
+                 </p>
+               )}
             </div>
 
             {/* Feed Toggle */}
