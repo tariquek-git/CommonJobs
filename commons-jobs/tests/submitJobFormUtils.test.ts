@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getInitialState,
+  listMissingRequiredFields,
   mapSubmissionError,
   normalizeAIData,
   sanitizePayloadForSubmit,
@@ -62,5 +63,25 @@ describe('submitJobFormUtils', () => {
   it('maps rate-limited error to friendly text', () => {
     const mapped = mapSubmissionError('Rate limited');
     expect(mapped.message).toContain('Too many attempts');
+  });
+
+  it('lists missing required fields in a stable priority order', () => {
+    const errors = validateRequiredFields({
+      formData: {},
+      isAdminMode: false,
+      trimmedSubmitterName: '',
+      trimmedSubmitterEmail: '',
+      trimmedExternalLink: ''
+    });
+    const fields = listMissingRequiredFields(errors);
+    expect(fields).toEqual([
+      'Apply link',
+      'Role title',
+      'Company name',
+      'Country',
+      'City',
+      'Your name',
+      'Your email'
+    ]);
   });
 });

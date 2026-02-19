@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useId, useRef } from 'react';
+import React, { useState, useEffect, useId, useMemo, useRef } from 'react';
 import { EmploymentType, JobPosting, JobSourceType, RemotePolicy, SeniorityLevel } from '../types';
 import { COUNTRIES, PROVINCES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
@@ -10,10 +10,12 @@ import { buildFeedbackMailto } from '../utils/feedbackMailto';
 import {
   getInitialState,
   mapSubmissionError,
+  listMissingRequiredFields,
   normalizeAIData,
   sanitizePayloadForSubmit,
   SubmissionFieldErrors,
   SubmissionFieldKey,
+  submissionFieldOrder,
   toDateTimeLocal,
   validateRequiredFields
 } from '../utils/submitJobFormUtils';
@@ -26,6 +28,48 @@ interface SubmitJobFormProps {
   isAdminMode?: boolean;
   defaultSourceType?: JobSourceType;
 }
+
+const SUBMIT_DRAFT_STORAGE_PREFIX = 'commons_jobs_submit_draft_v1';
+
+type SubmitDraftPayload = {
+  formData: Partial<JobPosting>;
+  jdText: string;
+  submitterName: string;
+  submitterEmail: string;
+  postedDateInput: string;
+  aiFallbackNotice: boolean;
+};
+
+const getDraftStorageKey = (isAdminMode: boolean, defaultSourceType: JobSourceType): string =>
+  `${SUBMIT_DRAFT_STORAGE_PREFIX}:${isAdminMode ? 'admin' : 'public'}:${defaultSourceType}`;
+
+const loadSubmitDraft = (key: string): SubmitDraftPayload | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SubmitDraftPayload;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const saveSubmitDraft = (key: string, payload: SubmitDraftPayload) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // Ignore storage write errors (private mode/quota).
+  }
+};
+
+const clearSubmitDraft = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore storage deletion errors.
+  }
+};
 
 type InputFieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label: string;
@@ -126,14 +170,27 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [fieldErrors, setFieldErrors] = useState<SubmissionFieldErrors>({});
   const [aiFallbackNotice, setAiFallbackNotice] = useState(false);
   const [scrapeToast, setScrapeToast] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   
   const jdInputRef = useRef<HTMLTextAreaElement>(null);
+  const step1Ref = useRef<HTMLElement>(null);
+  const step2Ref = useRef<HTMLElement>(null);
+  const step3Ref = useRef<HTMLElement>(null);
   const applyLinkId = useId();
+  const roleTitleId = useId();
+  const companyNameId = useId();
+  const countryId = useId();
   const jdTextId = useId();
   const cityId = useId();
+  const submitterNameId = useId();
+  const submitterEmailId = useId();
   const showAdminShortcut = Boolean(onOpenAdminDashboard);
+  const draftStorageKey = useMemo(
+    () => getDraftStorageKey(isAdminMode, defaultSourceType),
+    [defaultSourceType, isAdminMode]
+  );
 
   const scrollToTop = () => {
     try {
@@ -151,6 +208,19 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [submitterEmail, setSubmitterEmail] = useState(initialData?.submitterEmail || '');
   const [postedDateInput, setPostedDateInput] = useState(toDateTimeLocal(initialData?.postedDate));
 
+  const fieldIdByKey = useMemo<Record<SubmissionFieldKey, string>>(
+    () => ({
+      externalLink: applyLinkId,
+      roleTitle: roleTitleId,
+      companyName: companyNameId,
+      locationCountry: countryId,
+      locationCity: cityId,
+      submitterName: submitterNameId,
+      submitterEmail: submitterEmailId
+    }),
+    [applyLinkId, cityId, companyNameId, countryId, roleTitleId, submitterEmailId, submitterNameId]
+  );
+
   const clearFieldError = (field: SubmissionFieldKey) => {
     setFieldErrors((prev) => {
       if (!prev[field]) return prev;
@@ -160,6 +230,80 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     });
   };
 
+  const focusFirstInvalidField = (errors: SubmissionFieldErrors) => {
+    const firstInvalidField = submissionFieldOrder.find((field) => Boolean(errors[field]));
+    if (!firstInvalidField) return false;
+    const targetId = fieldIdByKey[firstInvalidField];
+    if (!targetId) return false;
+    const element = document.getElementById(targetId) as HTMLElement | null;
+    if (!element) return false;
+    element.focus();
+    if (typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return true;
+  };
+
+  const scrollToStep = (ref: React.RefObject<HTMLElement>) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const liveValidationErrors = useMemo(
+    () =>
+      validateRequiredFields({
+        formData,
+        isAdminMode,
+        trimmedSubmitterName: submitterName.trim(),
+        trimmedSubmitterEmail: submitterEmail.trim(),
+        trimmedExternalLink: (formData.externalLink || '').trim()
+      }),
+    [formData, isAdminMode, submitterEmail, submitterName]
+  );
+
+  const missingRequiredFields = useMemo(() => listMissingRequiredFields(liveValidationErrors), [liveValidationErrors]);
+  const requiredFieldsTotal = isAdminMode ? 5 : 7;
+  const requiredFieldsCompleted = requiredFieldsTotal - missingRequiredFields.length;
+
+
+  useEffect(() => {
+    if (isEditing) return;
+    const draft = loadSubmitDraft(draftStorageKey);
+    if (!draft) return;
+
+    setFormData((prev) => ({ ...prev, ...draft.formData }));
+    setJdText(draft.jdText || '');
+    setSubmitterName(draft.submitterName || '');
+    setSubmitterEmail(draft.submitterEmail || '');
+    setPostedDateInput(draft.postedDateInput || '');
+    setAiFallbackNotice(Boolean(draft.aiFallbackNotice));
+    setDraftRestored(true);
+  }, [draftStorageKey, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || isSubmitted) return;
+    const timer = window.setTimeout(() => {
+      saveSubmitDraft(draftStorageKey, {
+        formData,
+        jdText,
+        submitterName,
+        submitterEmail,
+        postedDateInput,
+        aiFallbackNotice
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    aiFallbackNotice,
+    draftStorageKey,
+    formData,
+    isEditing,
+    isSubmitted,
+    jdText,
+    postedDateInput,
+    submitterEmail,
+    submitterName
+  ]);
 
   // Auto-clear toast
   useEffect(() => {
@@ -245,8 +389,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
       setFieldErrors(nextFieldErrors);
       setError('Please fix the highlighted fields before submitting.');
       scrollToTop();
-      // Focus error for keyboard/screen reader users.
-      setTimeout(() => errorRef.current?.focus(), 0);
+      setTimeout(() => {
+        if (!focusFirstInvalidField(nextFieldErrors)) {
+          errorRef.current?.focus();
+        }
+      }, 0);
       return;
     }
 
@@ -278,6 +425,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	      
 	      setSubmittedJobId(newJobId);
 		      setIsSubmitted(true);
+          clearSubmitDraft(draftStorageKey);
 		      scrollToTop();
 		      setTimeout(() => successHeadingRef.current?.focus(), 0);
 		    } catch (err) {
@@ -288,7 +436,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           }
 		      setError(mapped.message);
 		      scrollToTop();
-		      setTimeout(() => errorRef.current?.focus(), 0);
+		      setTimeout(() => {
+            if (!focusFirstInvalidField(mapped.fieldErrors)) {
+              errorRef.current?.focus();
+            }
+          }, 0);
 		    } finally {
 	      setIsSubmitting(false);
 	    }
@@ -366,6 +518,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                      setError(null);
                         setFieldErrors({});
                         setAiFallbackNotice(false);
+                        setDraftRestored(false);
+                        clearSubmitDraft(draftStorageKey);
 	                      scrollToTop();
 	                    }}
 	                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
@@ -397,7 +551,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	  }
 
   return (
-    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 relative">
       
       {/* Toast */}
 	      {scrapeToast && (
@@ -414,7 +568,31 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
         </h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-8">
+      <form onSubmit={handleSubmit} noValidate className="p-6 md:p-8 space-y-8">
+            <div className="sticky top-20 z-10 rounded-xl border border-[#cdece8] bg-[#f4fbfa] px-4 py-3 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-bold text-[#0b5f58] uppercase tracking-wide">Submission Progress</div>
+                <div className="text-xs font-semibold text-[#0b5f58]">
+                  {requiredFieldsCompleted}/{requiredFieldsTotal} required fields complete
+                </div>
+              </div>
+              <div className="mt-2 h-2 w-full rounded-full bg-[#d7efec]">
+                <div
+                  className="h-2 rounded-full bg-[#2EC4B6] transition-all"
+                  style={{ width: `${Math.max(0, Math.min(100, (requiredFieldsCompleted / requiredFieldsTotal) * 100))}%` }}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={() => scrollToStep(step1Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">1. Link + JD</button>
+                <button type="button" onClick={() => scrollToStep(step2Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">2. Role Details</button>
+                <button type="button" onClick={() => scrollToStep(step3Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">{isAdminMode ? '3. Contact + Publish' : '3. Contact + Submit'}</button>
+              </div>
+              {missingRequiredFields.length > 0 && (
+                <p className="mt-3 text-xs text-[#0b5f58]">
+                  Missing: {missingRequiredFields.join(', ')}
+                </p>
+              )}
+            </div>
 	          {error && (
 	            <div
 	              ref={errorRef}
@@ -423,8 +601,21 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	              className="bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
 	            >
 	              {error}
+                {Object.keys(fieldErrors).length > 0 && (
+                  <ul className="mt-2 list-disc pl-5 text-xs">
+                    {listMissingRequiredFields(fieldErrors).map((field) => (
+                      <li key={field}>{field}</li>
+                    ))}
+                  </ul>
+                )}
 	            </div>
 	          )}
+
+          {draftRestored && !isEditing && (
+            <div className="rounded-lg border border-[#cdece8] bg-[#f4fbfa] p-3 text-xs text-[#0b5f58]">
+              Restored your unsent draft from this browser.
+            </div>
+          )}
 
           {!isAdminMode && (
             <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm border border-blue-100">
@@ -433,7 +624,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           )}
 
           {/* Step 1: Link & Intelligence */}
-          <section className="space-y-4">
+          <section id="submit-step-1" ref={step1Ref} className="space-y-4">
 	             <div className="flex items-center justify-between">
 	                <label htmlFor={applyLinkId} className="block text-sm font-bold text-gray-900">
 	                  1. {isAdminMode ? 'Role Source Link' : 'Link to Apply (JD)'}
@@ -478,7 +669,17 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                </label>
                   {aiFallbackNotice && (
                     <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      AI model unavailable, using fallback extraction.
+                      <div className="flex items-center gap-2">
+                        <span>AI model unavailable, using fallback extraction.</span>
+                        <button
+                          type="button"
+                          className="ml-auto rounded px-1.5 py-0.5 text-amber-900 hover:bg-amber-100"
+                          onClick={() => setAiFallbackNotice(false)}
+                          aria-label="Dismiss fallback notice"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                     </div>
                   )}
 	                <textarea
@@ -487,10 +688,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                    className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 min-h-[120px] bg-white placeholder:text-gray-400"
 	                    placeholder="If auto-fill fails, paste the full JD text here. The AI will extract role details, location, and tags for you."
 	                    value={jdText}
-	                    onChange={(e) => {
-                        setAiFallbackNotice(false);
-                        setJdText(e.target.value);
-                      }}
+	                    onChange={(e) => setJdText(e.target.value)}
 	                />
                 <button
                     type="button"
@@ -514,11 +712,12 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           <hr className="border-gray-100" />
 
           {/* Step 2: Core Details */}
-          <section className="space-y-6">
+          <section id="submit-step-2" ref={step2Ref} className="space-y-6">
             <h3 className="text-sm font-bold text-gray-900">2. Role Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 	              <div className="md:col-span-2">
 	                 <InputField
+                    id={roleTitleId}
                     label="Role Title"
                     required
                     value={formData.roleTitle || ''}
@@ -531,6 +730,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	              </div>
 	
 	              <InputField
+                  id={companyNameId}
                   label="Company Name"
                   required
                   value={formData.companyName || ''}
@@ -553,6 +753,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                      <SelectField
                         label="Country"
                         required
+                        id={countryId}
                         options={COUNTRIES}
                         value={formData.locationCountry || ''}
                         error={fieldErrors.locationCountry}
@@ -615,7 +816,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           {/* Step 3: Admin Publishing Controls */}
           {isAdminMode && (
             <>
-              <section className="space-y-6">
+              <section id="submit-step-3" ref={step3Ref} className="space-y-6">
                 <h3 className="text-sm font-bold text-gray-900">3. Publishing Controls</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <SelectField
@@ -673,12 +874,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
           )}
 
           {/* Step 4: Contact */}
-          <section className="space-y-6">
+          <section id={isAdminMode ? undefined : 'submit-step-3'} ref={isAdminMode ? undefined : step3Ref} className="space-y-6">
               <h3 className="text-sm font-bold text-gray-900">
                 {isAdminMode ? '4. Contact Info (Optional)' : '3. Contact Info (Private)'}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 	                <InputField
+                    id={submitterNameId}
 	                  label="Your Name"
 	                  required={!isAdminMode}
                     error={fieldErrors.submitterName}
@@ -689,6 +891,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     }}
 	                />
 	                <InputField
+                    id={submitterEmailId}
 	                  label="Your Email"
 	                  required={!isAdminMode}
 	                  type="email"

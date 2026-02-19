@@ -26,6 +26,7 @@ describe('SubmitJobForm', () => {
     submitJobMock.mockReset();
     analyzeJobDescriptionMock.mockReset();
     analyzeJobDescriptionMock.mockResolvedValue(null);
+    localStorage.clear();
   });
 
   it('shows a success confirmation with a reference id after submission', async () => {
@@ -237,5 +238,39 @@ describe('SubmitJobForm', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Some required fields are missing or invalid');
+  });
+
+  it('focuses the first invalid required field when submitting incomplete form', async () => {
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(/link to apply/i));
+    });
+  });
+
+  it('restores a saved draft from localStorage', async () => {
+    localStorage.setItem(
+      'commons_jobs_submit_draft_v1:public:Direct',
+      JSON.stringify({
+        formData: { roleTitle: 'Saved Role', companyName: 'Saved Co' },
+        jdText: '',
+        submitterName: '',
+        submitterEmail: '',
+        postedDateInput: '',
+        aiFallbackNotice: false
+      })
+    );
+
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/role title/i) as HTMLInputElement).value).toBe('Saved Role');
+    });
+    expect((screen.getByLabelText(/company name/i) as HTMLInputElement).value).toBe('Saved Co');
+    expect(screen.getByText(/restored your unsent draft/i)).toBeTruthy();
   });
 });

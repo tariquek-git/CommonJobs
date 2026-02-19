@@ -12,6 +12,26 @@ export type SubmissionFieldKey =
 
 export type SubmissionFieldErrors = Partial<Record<SubmissionFieldKey, string>>;
 
+export const submissionFieldOrder: SubmissionFieldKey[] = [
+  'externalLink',
+  'roleTitle',
+  'companyName',
+  'locationCountry',
+  'locationCity',
+  'submitterName',
+  'submitterEmail'
+];
+
+export const submissionFieldLabels: Record<SubmissionFieldKey, string> = {
+  externalLink: 'Apply link',
+  roleTitle: 'Role title',
+  companyName: 'Company name',
+  locationCountry: 'Country',
+  locationCity: 'City',
+  submitterName: 'Your name',
+  submitterEmail: 'Your email'
+};
+
 export const toDateTimeLocal = (isoDate?: string): string => {
   if (!isoDate) return '';
   const date = new Date(isoDate);
@@ -210,4 +230,10 @@ export const mapSubmissionError = (
     message: message || 'Failed to submit job. Please try again.',
     fieldErrors: nextFieldErrors
   };
+};
+
+export const listMissingRequiredFields = (errors: SubmissionFieldErrors): string[] => {
+  return submissionFieldOrder
+    .filter((key) => Boolean(errors[key]))
+    .map((key) => submissionFieldLabels[key]);
 };
