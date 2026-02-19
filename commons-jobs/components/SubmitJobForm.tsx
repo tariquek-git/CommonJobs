@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useId, useRef } from 'react';
 import { EmploymentType, JobPosting, JobSourceType, RemotePolicy, SeniorityLevel } from '../types';
-import { COUNTRIES, PROVINCES, MAJOR_CITIES } from '../constants';
+import { COUNTRIES, PROVINCES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
@@ -142,7 +142,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const applyLinkId = useId();
   const jdTextId = useId();
   const cityId = useId();
-  const cityListId = `major-cities-${cityId}`;
   const showAdminShortcut = Boolean(onOpenAdminDashboard);
 
   const scrollToTop = () => {
@@ -765,8 +764,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		                             required
 		                             id={cityId}
 		                             type="text" 
-		                             list={cityListId}
-		                             placeholder="Autocomplete..." 
+		                             placeholder="City (e.g., Toronto)" 
+                               autoComplete="address-level2"
 		                             className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm ${
                                    fieldErrors.locationCity ? 'border-red-300' : 'border-gray-300'
                                  }`}
@@ -783,9 +782,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                                {fieldErrors.locationCity}
                              </p>
                            )}
-		                         <datalist id={cityListId}>
-	                             {MAJOR_CITIES.map(city => <option key={city} value={city} />)}
-	                         </datalist>
 	                     </div>
                  </div>
             </div>

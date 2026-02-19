@@ -183,6 +183,22 @@ describe('SubmitJobForm', () => {
     expect(applyLink.value).toBe('https://example.com/apply');
   });
 
+  it('keeps focus in the active input while typing', async () => {
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    const roleTitleInput = screen.getByLabelText(/role title/i) as HTMLInputElement;
+    roleTitleInput.focus();
+    expect(document.activeElement).toBe(roleTitleInput);
+
+    fireEvent.change(roleTitleInput, { target: { value: 'S' } });
+    expect(document.activeElement).toBe(roleTitleInput);
+    fireEvent.change(roleTitleInput, { target: { value: 'Se' } });
+    expect(document.activeElement).toBe(roleTitleInput);
+    fireEvent.change(roleTitleInput, { target: { value: 'Senior' } });
+    expect(document.activeElement).toBe(roleTitleInput);
+  });
+
   it('shows AI fallback notice when the backend reports fallback mode', async () => {
     analyzeJobDescriptionMock.mockResolvedValueOnce({
       result: {
