@@ -3,6 +3,7 @@ import { EmploymentType, JobFilterState, JobPosting, JobSearchFacets, JobSortOpt
 const REMOTE_POLICY_VALUES: RemotePolicy[] = ['Onsite', 'Hybrid', 'Remote'];
 const EMPLOYMENT_TYPE_VALUES: EmploymentType[] = ['Full-time', 'Contract', 'Internship'];
 const SENIORITY_VALUES: SeniorityLevel[] = ['Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive'];
+export const AGGREGATED_COMPANY_CAP = 5;
 
 const withinDateRange = (postedDate: string, range: JobFilterState['dateRange']) => {
   if (range === 'all') return true;
@@ -99,6 +100,21 @@ export const sortPublicJobs = (
     default:
       return input.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
   }
+};
+
+export const applyCompanyDiversityCap = (jobs: JobPosting[], maxPerCompany = AGGREGATED_COMPANY_CAP): JobPosting[] => {
+  const companyCount = new Map<string, number>();
+  const output: JobPosting[] = [];
+
+  for (const job of jobs) {
+    const companyKey = job.companyName.trim().toLowerCase();
+    const seen = companyCount.get(companyKey) || 0;
+    if (seen >= maxPerCompany) continue;
+    companyCount.set(companyKey, seen + 1);
+    output.push(job);
+  }
+
+  return output;
 };
 
 export const buildSearchFacets = (jobs: JobPosting[]): JobSearchFacets => {

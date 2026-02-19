@@ -161,6 +161,61 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('jobs search enforces aggregated company diversity cap', async () => {
+    const now = Date.now();
+    const repeatedJobs: JobPosting[] = Array.from({ length: 7 }).map((_, index) => ({
+      id: `agg-${index}`,
+      companyName: 'RepeatCo',
+      companyWebsite: 'https://repeat.co',
+      roleTitle: `Aggregated Role ${index}`,
+      externalLink: `https://repeat.co/jobs/${index}`,
+      postedDate: new Date(now - index * 1_000).toISOString(),
+      status: 'active',
+      sourceType: 'Aggregated',
+      isVerified: false,
+      clicks: 0
+    }));
+    const uniqueJob: JobPosting = {
+      id: 'agg-unique',
+      companyName: 'UniqueCo',
+      companyWebsite: 'https://unique.co',
+      roleTitle: 'Unique Role',
+      externalLink: 'https://unique.co/jobs/1',
+      postedDate: new Date(now - 10_000).toISOString(),
+      status: 'active',
+      sourceType: 'Aggregated',
+      isVerified: false,
+      clicks: 0
+    };
+
+    const app = buildApp(new InMemoryJobRepository([...repeatedJobs, uniqueJob]), new InMemoryClickRepository(), buildTestEnv());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      payload: {
+        feedType: 'aggregated',
+        filters: {
+          keyword: '',
+          remotePolicies: [],
+          seniorityLevels: [],
+          employmentTypes: [],
+          dateRange: 'all',
+          locations: []
+        }
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { jobs: JobPosting[]; total: number; meta: { companyCapApplied: boolean } };
+    expect(body.meta.companyCapApplied).toBe(true);
+    expect(body.total).toBe(6);
+    expect(body.jobs.filter((job) => job.companyName === 'RepeatCo')).toHaveLength(5);
+    expect(body.jobs.some((job) => job.companyName === 'UniqueCo')).toBe(true);
+
+    await app.close();
+  });
+
   it('AI endpoints are rate limited by request.ip and not bypassed by spoofed x-forwarded-for', async () => {
     const stubAi = {
       analyzeJobDescription: async () => ({ ok: true }),

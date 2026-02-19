@@ -207,6 +207,17 @@ What to test:
    - Device/browser
    - Submission Reference ID (if shown)
 
+## Weekly WAU Monitoring
+1. In Vercel Project Dashboard, enable Web Analytics for the `commons-jobs` project.
+2. Use the 7-day view and track:
+   - Unique visitors/week (primary WAU KPI)
+   - Returning visitors/week
+   - Top landing route (`/`, `/?feed=aggregated`, `/submit` if linked directly)
+3. During beta, review metrics weekly alongside:
+   - Submission completion volume
+   - Apply click volume
+4. If WAU grows but submissions lag, prioritize submit-flow UX fixes before adding new sourcing features.
+
 ## Security Notes
 - No default secrets or credentials in runtime config.
 - Backend enforces server-side validation/sanitization.

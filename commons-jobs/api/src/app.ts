@@ -6,7 +6,7 @@ import { AppEnv, parseAllowedOrigins } from './config/env.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { applySecurityHeaders } from './lib/securityHeaders.js';
 import { badRequest, notFound, tooManyRequests, unauthorized } from './lib/http.js';
-import { buildSearchFacets, filterPublicJobs, sortPublicJobs } from './services/filterJobs.js';
+import { AGGREGATED_COMPANY_CAP, applyCompanyDiversityCap, buildSearchFacets, filterPublicJobs, sortPublicJobs } from './services/filterJobs.js';
 import {
   adminCreateJobSchema,
   adminStatusSchema,
@@ -133,13 +133,18 @@ export const buildApp = (
     const jobs = await repository.list();
     const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType, 'newest');
     const hydrated = await hydrateClicks(filtered);
-    const sorted = sortPublicJobs(hydrated, parsed.data.sort, parsed.data.feedType);
+    const visibleJobs =
+      parsed.data.feedType === 'aggregated'
+        ? applyCompanyDiversityCap(sortPublicJobs(hydrated, 'newest', 'aggregated'), AGGREGATED_COMPANY_CAP)
+        : hydrated;
+    const sorted = sortPublicJobs(visibleJobs, parsed.data.sort, parsed.data.feedType);
     const total = sorted.length;
     const page = parsed.data.page;
     const pageSize = parsed.data.pageSize;
     const offset = (page - 1) * pageSize;
     const pagedJobs = sorted.slice(offset, offset + pageSize);
-    const facets = buildSearchFacets(hydrated);
+    const facets = buildSearchFacets(visibleJobs);
+    const companyCapApplied = parsed.data.feedType === 'aggregated' && visibleJobs.length < hydrated.length;
 
     return {
       jobs: pagedJobs,
@@ -148,7 +153,7 @@ export const buildApp = (
       pageSize,
       facets,
       meta: {
-        companyCapApplied: parsed.data.feedType === 'aggregated'
+        companyCapApplied
       }
     };
   });

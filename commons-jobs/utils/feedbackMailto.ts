@@ -4,6 +4,10 @@ type FeedbackContext = {
   pageUrl?: string;
   jobId?: string;
   submissionId?: string;
+  feedType?: 'direct' | 'aggregated';
+  sort?: string;
+  keyword?: string;
+  activeFilters?: string[];
 };
 
 const line = (label: string, value?: string): string => `${label}: ${value || ''}`;
@@ -23,10 +27,13 @@ export const buildFeedbackMailto = (ctx: FeedbackContext = {}): string => {
     line('Page URL', ctx.pageUrl),
     line('Job ID', ctx.jobId),
     line('Submission/Reference ID', ctx.submissionId),
+    line('Feed', ctx.feedType),
+    line('Sort', ctx.sort),
+    line('Keyword', ctx.keyword),
+    line('Active filters', ctx.activeFilters && ctx.activeFilters.length > 0 ? ctx.activeFilters.join(', ') : undefined),
     '',
     'Device/Browser (e.g., iPhone Safari):'
   ];
 
   return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
 };
-

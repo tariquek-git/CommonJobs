@@ -8,7 +8,7 @@ import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from '.
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
-import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
+import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck, Clock3 } from 'lucide-react';
 import { buildFeedbackMailto } from './utils/feedbackMailto';
 
 const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
@@ -155,6 +155,22 @@ const App: React.FC = () => {
     );
     return pills;
   }, [filters.employmentTypes, filters.remotePolicies, filters.seniorityLevels]);
+
+  const feedbackHref = useMemo(() => {
+    const activeFilters = [
+      ...filters.remotePolicies,
+      ...filters.employmentTypes,
+      ...filters.seniorityLevels,
+      ...(filters.dateRange !== 'all' ? [`Date: ${filters.dateRange}`] : [])
+    ];
+    return buildFeedbackMailto({
+      pageUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+      feedType,
+      sort: filters.sort,
+      keyword: filters.keyword,
+      activeFilters
+    });
+  }, [feedType, filters.dateRange, filters.employmentTypes, filters.keyword, filters.remotePolicies, filters.seniorityLevels, filters.sort]);
 
   useEffect(() => {
     if (!showAdminLogin) return;
@@ -407,6 +423,15 @@ const App: React.FC = () => {
                    AI model unavailable, using fallback extraction.
                  </p>
                )}
+               <div className="mt-3 flex items-center justify-end">
+                 <a
+                   href={feedbackHref}
+                   className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-300 hover:text-gray-900"
+                 >
+                   <MessageSquare size={14} />
+                   Send feedback
+                 </a>
+               </div>
             </div>
 
             {/* Feed Toggle */}
@@ -491,12 +516,40 @@ const App: React.FC = () => {
                     <div>
                         <p className="font-bold">Automated Canadian Fintech Feed</p>
                         <p className="opacity-80">This feed pulls public listings from major Canadian banks and fintechs posted in the last 14 days. These are not manually verified by the Commons.</p>
+                        <p className="mt-1 text-xs font-semibold opacity-90">Company diversity active: max 5 active roles per company.</p>
                         {companyCapApplied && (
-                          <p className="mt-1 text-xs font-semibold opacity-90">Company diversity active: max 5 active roles per company.</p>
+                          <p className="mt-1 text-xs opacity-80">Repeated companies were trimmed in this result set.</p>
                         )}
                     </div>
                 </div>
             )}
+
+            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+              <h2 className="mb-3 text-sm font-bold text-gray-900">How this board works</h2>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
+                    <ShieldCheck size={13} />
+                    Community reviewed
+                  </p>
+                  <p className="text-xs text-gray-600">Community Board roles are reviewed before they are publicly visible.</p>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
+                    <Globe size={13} />
+                    Market feed
+                  </p>
+                  <p className="text-xs text-gray-600">Web Pulse reflects public market listings and may contain duplicates or stale posts.</p>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
+                    <Clock3 size={13} />
+                    Moderation SLA
+                  </p>
+                  <p className="text-xs text-gray-600">New community submissions are usually reviewed in 24h and may take up to 48h.</p>
+                </div>
+              </div>
+            </section>
 
             {/* Feed */}
             {loading ? (
@@ -690,7 +743,7 @@ const App: React.FC = () => {
 		                </a>{' '}
 		                for edits or takedowns.{' '}
 		                <a
-		                  href={buildFeedbackMailto({ pageUrl: typeof window !== 'undefined' ? window.location.href : undefined })}
+		                  href={feedbackHref}
 		                  className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
 		                >
 		                  Send beta feedback

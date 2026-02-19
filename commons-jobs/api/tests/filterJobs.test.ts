@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSearchFacets, filterPublicJobs } from '../src/services/filterJobs.js';
+import { AGGREGATED_COMPANY_CAP, applyCompanyDiversityCap, buildSearchFacets, filterPublicJobs } from '../src/services/filterJobs.js';
 import { JobPosting } from '../src/types/jobs.js';
 
 const now = Date.now();
@@ -161,5 +161,24 @@ describe('filterPublicJobs', () => {
     expect(facets.remotePolicies.Hybrid).toBe(0);
     expect(facets.employmentTypes['Full-time']).toBe(1);
     expect(facets.seniorityLevels.Senior).toBe(1);
+  });
+
+  it('caps aggregated jobs per company to improve feed diversity', () => {
+    const repeated: JobPosting[] = Array.from({ length: AGGREGATED_COMPANY_CAP + 2 }).map((_, index) => ({
+      id: `agg-${index}`,
+      companyName: 'RepeatCo',
+      companyWebsite: 'https://repeat.co',
+      roleTitle: `Role ${index}`,
+      externalLink: `https://repeat.co/jobs/${index}`,
+      postedDate: new Date(now - index * 1_000).toISOString(),
+      status: 'active',
+      sourceType: 'Aggregated',
+      isVerified: false,
+      clicks: 0
+    }));
+
+    const result = applyCompanyDiversityCap(repeated);
+    expect(result).toHaveLength(AGGREGATED_COMPANY_CAP);
+    expect(result.map((job) => job.id)).toEqual(repeated.slice(0, AGGREGATED_COMPANY_CAP).map((job) => job.id));
   });
 });

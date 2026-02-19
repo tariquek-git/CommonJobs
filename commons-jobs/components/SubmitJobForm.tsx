@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useId, useMemo, useRef } from 'react';
-import { EmploymentType, JobPosting, JobSourceType, RemotePolicy, SeniorityLevel } from '../types';
+import { EmploymentType, JobPosting, JobSourceType, RemotePolicy } from '../types';
 import { COUNTRIES, PROVINCES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
 import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
