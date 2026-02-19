@@ -30,13 +30,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   return (
     <article
       className={`group bg-white rounded-xl border p-6 flex flex-col h-full transition-all duration-200 hover:shadow-md relative cursor-pointer ${
-          isAggregated ? 'border-blue-100 hover:border-blue-300' : 'border-gray-200 hover:border-blue-300'
+          isAggregated ? 'border-[#cdece8] hover:border-[#87d8cf]' : 'border-gray-200 hover:border-[#87d8cf]'
       }`}
     >
       <button
         type="button"
         onClick={() => onSelect(job)}
-        className="w-full h-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 rounded-lg"
+        className="w-full h-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EC4B6] focus-visible:ring-offset-2 rounded-lg"
       >
       
       {/* Top: Logo & Meta */}
@@ -65,7 +65,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
             </div>
         )}
         {isAggregated && (
-            <div className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full border border-blue-100 flex items-center gap-1">
+            <div className="bg-[#e8f9f6] text-[#0f766e] text-[10px] font-bold px-2 py-1 rounded-full border border-[#cdece8] flex items-center gap-1">
                 <Bot size={10} /> Auto-Pulled
             </div>
         )}
@@ -73,7 +73,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Main Info */}
       <div className="mb-4">
-        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1.5 group-hover:text-blue-600 transition-colors" title={job.roleTitle}>
+        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1.5 group-hover:text-[#0f766e] transition-colors" title={job.roleTitle}>
             {job.roleTitle}
         </h3>
         <div className="text-sm font-medium text-gray-600 truncate flex items-center gap-1">
@@ -103,7 +103,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Intelligence Block */}
       {job.intelligenceSummary && (
-          <div className={`mb-6 rounded-lg p-3 grow ${isAggregated ? 'bg-blue-50/30 border border-blue-50' : 'bg-gray-50/80 border border-gray-100'}`}>
+          <div className={`mb-6 rounded-lg p-3 grow ${isAggregated ? 'bg-[#eefaf8] border border-[#d7efec]' : 'bg-gray-50/80 border border-gray-100'}`}>
               <p className="text-xs md:text-sm text-gray-600 leading-relaxed line-clamp-3">
                   {job.intelligenceSummary}
               </p>
@@ -125,7 +125,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
         {/* Visual Button - Click actually bubbles to container */}
         <span
-          className="px-4 py-2.5 bg-gray-900 group-hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-all shadow-sm flex items-center gap-2 shrink-0"
+          className="px-4 py-2.5 bg-[#0B132B] group-hover:bg-[#2EC4B6] group-hover:text-[#0B132B] text-white text-sm font-bold rounded-lg transition-all shadow-sm flex items-center gap-2 shrink-0"
           aria-hidden="true"
         >
           Apply <ArrowUpRight size={16} />

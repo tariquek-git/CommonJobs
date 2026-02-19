@@ -280,7 +280,7 @@ const App: React.FC = () => {
                     <Filter size={16} className="text-gray-500"/>
                     <span>Filters</span>
                     {activeFilterCount > 0 && (
-                        <span className="bg-blue-600 text-white text-[10px] h-5 w-5 flex items-center justify-center rounded-full">
+                        <span className="bg-[#2EC4B6] text-[#0B132B] text-[10px] h-5 w-5 flex items-center justify-center rounded-full font-bold">
                             {activeFilterCount}
                         </span>
                     )}
@@ -297,13 +297,13 @@ const App: React.FC = () => {
 	                <div className="pt-8 border-t border-gray-200">
 	                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Admin & Info</h3>
 	                    <div className="space-y-2 flex flex-col items-start">
-	                        <button type="button" onClick={() => setCurrentView('terms')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                        <button type="button" onClick={() => setCurrentView('terms')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
 	                            Data, Terms & Common Sense
 	                        </button>
-	                        <button type="button" onClick={() => setCurrentView('about')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                        <button type="button" onClick={() => setCurrentView('about')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
 	                            Why, Who, & What
 	                        </button>
-	                        <button type="button" onClick={() => setCurrentView('faq')} className="text-xs font-medium text-gray-500 hover:text-blue-600 transition-colors text-left">
+	                        <button type="button" onClick={() => setCurrentView('faq')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
 	                            FAQ
 	                        </button>
 	                        {isAdmin ? (
@@ -311,7 +311,7 @@ const App: React.FC = () => {
 	                              <button
 	                                type="button"
 	                                onClick={() => setCurrentView('admin')}
-	                                className="text-xs font-bold text-gray-700 hover:text-blue-600 transition-colors"
+	                                className="text-xs font-bold text-gray-700 hover:text-[#0f766e] transition-colors"
 	                              >
 	                                Admin Dashboard
 	                              </button>
@@ -343,7 +343,7 @@ const App: React.FC = () => {
                     id="job-search"
                     type="text"
                     placeholder={feedType === 'aggregated' ? "Search Canadian Fintech (e.g. Wealthsimple)..." : "Describe your ideal role (e.g. 'Remote React jobs')..."}
-                    className="w-full pl-12 pr-12 py-4 bg-white border border-gray-200 rounded-xl text-lg text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all shadow-sm"
+                    className="w-full pl-12 pr-12 py-4 bg-white border border-gray-200 rounded-xl text-lg text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#2EC4B6] focus:border-[#2EC4B6] outline-none transition-all shadow-sm"
                     value={searchQuery}
                     onChange={handleSearchChange}
                     onKeyDown={handleKeyDown}
@@ -357,7 +357,7 @@ const App: React.FC = () => {
                   )}
                   {isProcessingAI && (
                       <div className="absolute right-4">
-                          <Loader2 className="animate-spin text-blue-600" size={20} />
+                          <Loader2 className="animate-spin text-[#0f766e]" size={20} />
                       </div>
                   )}
                </div>
@@ -388,8 +388,8 @@ const App: React.FC = () => {
                     onClick={() => setFeedType('aggregated')}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all border ${
                         feedType === 'aggregated'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'
+                        ? 'bg-[#2EC4B6] text-[#0B132B] border-[#2EC4B6] shadow-md transform scale-105'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-[#f5fbfb] hover:text-[#0B132B]'
                     }`}
                     aria-pressed={feedType === 'aggregated'}
                 >
@@ -400,7 +400,7 @@ const App: React.FC = () => {
 
             {/* Feed Info / Disclaimer */}
             {feedType === 'aggregated' && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800 flex items-start gap-3 animate-fade-in">
+                <div className="mb-6 p-4 bg-[#e8f9f6] border border-[#cdece8] rounded-xl text-sm text-[#0f5f59] flex items-start gap-3 animate-fade-in">
                     <Globe size={18} className="mt-0.5 shrink-0" />
                     <div>
                         <p className="font-bold">Automated Canadian Fintech Feed</p>
@@ -502,7 +502,7 @@ const App: React.FC = () => {
                         id="admin-username"
                         type="text" 
                         placeholder="Username" 
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-3 focus:ring-1 focus:ring-blue-600 outline-none"
+                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-3 focus:ring-1 focus:ring-[#2EC4B6] outline-none"
                         value={adminUsername}
                         onChange={e => setAdminUsername(e.target.value)}
                         autoComplete="username"
@@ -514,7 +514,7 @@ const App: React.FC = () => {
                         id="admin-password"
                         type="password" 
                         placeholder="Password" 
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-4 focus:ring-1 focus:ring-blue-600 outline-none"
+                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-4 focus:ring-1 focus:ring-[#2EC4B6] outline-none"
                         value={adminPassword}
                         onChange={e => setAdminPassword(e.target.value)}
                         autoComplete="current-password"
@@ -544,19 +544,23 @@ const App: React.FC = () => {
 
       <footer className="border-t border-gray-200 py-12 mt-16 bg-white">
         <div className="max-w-5xl mx-auto px-4 text-center space-y-6">
-          <div className="flex items-center justify-center gap-2 text-gray-900 font-bold text-lg tracking-tight hover:text-gray-600 transition-all duration-500">
-             <Hexagon size={20} strokeWidth={2.5} /> Commons Jobs
+          <div className="flex items-center justify-center gap-3 text-[#0B132B] font-bold text-lg tracking-tight transition-all duration-500">
+             <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B132B] shadow-[0_8px_20px_rgba(11,19,43,0.24)]">
+               <Hexagon size={19} strokeWidth={2.3} className="text-[#2EC4B6]" />
+               <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#2EC4B6] border border-white" />
+             </span>
+             Commons Jobs
           </div>
           <p className="text-gray-500 text-sm">Curated opportunities for the next generation of finance.</p>
           
           <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-500">
-             <button type="button" onClick={() => setCurrentView('terms')} className="hover:text-blue-600 transition-colors">
+             <button type="button" onClick={() => setCurrentView('terms')} className="hover:text-[#0f766e] transition-colors">
                 Data, Terms & Common Sense
             </button>
-            <button type="button" onClick={() => setCurrentView('about')} className="hover:text-blue-600 transition-colors">
+            <button type="button" onClick={() => setCurrentView('about')} className="hover:text-[#0f766e] transition-colors">
                 Why, Who, & What
             </button>
-            <button type="button" onClick={() => setCurrentView('faq')} className="hover:text-blue-600 transition-colors">
+            <button type="button" onClick={() => setCurrentView('faq')} className="hover:text-[#0f766e] transition-colors">
                 FAQ
             </button>
           </div>
@@ -566,7 +570,7 @@ const App: React.FC = () => {
 		                Email{' '}
 		                <a
 		                  href={`mailto:${CONTACT_EMAIL}`}
-		                  className="text-blue-700 underline underline-offset-2 hover:text-blue-800"
+		                  className="text-[#0f766e] underline underline-offset-2 hover:text-[#0a5a54]"
 		                >
 		                  {CONTACT_EMAIL}
 		                </a>{' '}

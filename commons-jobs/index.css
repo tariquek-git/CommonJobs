@@ -5,8 +5,8 @@
 @layer base {
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background-color: #f3f4f6;
-    color: #111827;
+    background: linear-gradient(180deg, #f8fbfc 0%, #edf4f4 100%);
+    color: #0b132b;
   }
 }
 
