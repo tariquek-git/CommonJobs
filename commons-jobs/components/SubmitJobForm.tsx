@@ -7,6 +7,16 @@ import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'luc
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 import { CONTACT_EMAIL } from '../siteConfig';
 import { buildFeedbackMailto } from '../utils/feedbackMailto';
+import {
+  getInitialState,
+  mapSubmissionError,
+  normalizeAIData,
+  sanitizePayloadForSubmit,
+  SubmissionFieldErrors,
+  SubmissionFieldKey,
+  toDateTimeLocal,
+  validateRequiredFields
+} from '../utils/submitJobFormUtils';
 
 interface SubmitJobFormProps {
   onSuccess: () => void;
@@ -97,25 +107,6 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id,
   );
 };
 
-type SubmissionFieldKey =
-  | 'externalLink'
-  | 'roleTitle'
-  | 'companyName'
-  | 'locationCountry'
-  | 'locationCity'
-  | 'submitterName'
-  | 'submitterEmail';
-
-type SubmissionFieldErrors = Partial<Record<SubmissionFieldKey, string>>;
-
-const toDateTimeLocal = (isoDate?: string): string => {
-  if (!isoDate) return '';
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return '';
-  const timezoneOffsetMs = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-};
-
 const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   onSuccess,
   onOpenTerms,
@@ -152,26 +143,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
   };
 
-  // Initial State
-  const getInitialState = (sourceType: JobSourceType): Partial<JobPosting> => ({
-    companyName: '',
-    companyWebsite: '',
-    roleTitle: '',
-    externalLink: '',
-    locationCity: '',
-    locationState: '',
-    locationCountry: '',
-    salaryRange: '',
-    currency: '',
-    intelligenceSummary: '',
-    externalSource: sourceType === 'Direct' ? 'Direct' : 'Manual Web Import',
-    tags: [],
-    remotePolicy: RemotePolicy.ONSITE,
-    sourceType,
-    isVerified: sourceType === 'Direct',
-    status: sourceType === 'Direct' ? 'pending' : 'active'
-  });
-
   const [formData, setFormData] = useState<Partial<JobPosting>>(
       initialData || getInitialState(defaultSourceType)
   );
@@ -189,41 +160,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     });
   };
 
-  const setFriendlySubmissionError = (rawMessage: string) => {
-    const message = rawMessage.trim();
-    const lower = message.toLowerCase();
-    const nextFieldErrors: SubmissionFieldErrors = {};
-
-    if (lower.includes('valid apply link') || lower.includes('apply link') || lower.includes('external link')) {
-      nextFieldErrors.externalLink = 'Enter a valid apply URL (must start with http:// or https://).';
-    }
-    if (lower.includes('valid email')) {
-      nextFieldErrors.submitterEmail = 'Use a valid email address for submission updates.';
-    }
-    if (lower.includes('company name and role title')) {
-      nextFieldErrors.companyName = 'Company name is required.';
-      nextFieldErrors.roleTitle = 'Role title is required.';
-    }
-    if (lower.includes('country and city')) {
-      nextFieldErrors.locationCountry = 'Country is required.';
-      nextFieldErrors.locationCity = 'City is required.';
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setFieldErrors(nextFieldErrors);
-    }
-
-    if (lower.includes('invalid submission payload')) {
-      setError('Some required fields are missing or invalid. Check the highlighted fields and try again.');
-      return;
-    }
-    if (lower.includes('too many requests') || lower.includes('rate limit') || lower.includes('rate limited')) {
-      setError('Too many attempts right now. Please wait a minute and try again.');
-      return;
-    }
-
-    setError(message || 'Failed to submit job. Please try again.');
-  };
 
   // Auto-clear toast
   useEffect(() => {
@@ -264,86 +200,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }, 1200);
   };
 
-  const normalizeAIData = (data: Record<string, unknown>) => {
-    // Important: pluck normalized keys out so `...rest` cannot overwrite them.
-    const {
-      employmentType,
-      seniority,
-      locationCountry: rawLocationCountry,
-      remotePolicy: rawRemotePolicy,
-      ...rest
-    } = data;
-
-    // Guard rails: AI must never override key submission fields like externalLink.
-    // Only allow a narrow set of fields to be applied to the form.
-    const allowedStringFields = new Set([
-      'companyName',
-      'roleTitle',
-      'companyWebsite',
-      'locationCity',
-      'locationState',
-      'region',
-      'salaryRange',
-      'currency',
-      'externalSource'
-    ]);
-    const safeRest: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(rest)) {
-      if (key === 'externalLink' || key === 'submitterEmail' || key === 'submitterName') continue;
-      if (allowedStringFields.has(key) && typeof value === 'string') {
-        safeRest[key] = value;
-        continue;
-      }
-      if (key === 'tags' && Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
-        safeRest[key] = value;
-      }
-    }
-
-    let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
-    let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
-    let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
-    let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
-
-    // Strict Normalization for Dropdowns
-    if (locationCountry === 'USA' || locationCountry === 'US') locationCountry = 'United States';
-    if (locationCountry === 'UK' || locationCountry === 'Germany' || locationCountry === 'France') locationCountry = 'Europe';
-    if (!COUNTRIES.includes(locationCountry)) locationCountry = 'Rest of World';
-
-	    // Normalize Remote Policy
-	    if (!Object.values(RemotePolicy).includes(remotePolicy as RemotePolicy)) {
-	        if (remotePolicy?.toLowerCase().includes('remote')) remotePolicy = RemotePolicy.REMOTE;
-	        else if (remotePolicy?.toLowerCase().includes('hybrid')) remotePolicy = RemotePolicy.HYBRID;
-	        else remotePolicy = RemotePolicy.ONSITE;
-	    }
-
-	    // Normalize Employment Type (optional but must match enum if present)
-	    if (!Object.values(EmploymentType).includes(normalizedEmploymentType as EmploymentType)) {
-	      const lower = normalizedEmploymentType.toLowerCase();
-	      if (lower.includes('full')) normalizedEmploymentType = EmploymentType.FULL_TIME;
-	      else if (lower.includes('contract')) normalizedEmploymentType = EmploymentType.CONTRACT;
-	      else if (lower.includes('intern')) normalizedEmploymentType = EmploymentType.INTERNSHIP;
-	      else normalizedEmploymentType = '';
-	    }
-
-	    // Normalize Seniority (optional but must match enum if present)
-	    if (!Object.values(SeniorityLevel).includes(normalizedSeniority as SeniorityLevel)) {
-	      const lower = normalizedSeniority.toLowerCase();
-	      if (lower.includes('junior') || lower === 'jr') normalizedSeniority = SeniorityLevel.JUNIOR;
-	      else if (lower.includes('mid')) normalizedSeniority = SeniorityLevel.MID;
-	      else if (lower.includes('senior') || lower === 'sr') normalizedSeniority = SeniorityLevel.SENIOR;
-	      else if (lower.includes('lead') || lower.includes('staff') || lower.includes('principal')) normalizedSeniority = SeniorityLevel.LEAD;
-	      else if (lower.includes('exec') || lower.includes('director') || lower.includes('vp')) normalizedSeniority = SeniorityLevel.EXECUTIVE;
-	      else normalizedSeniority = '';
-	    }
-
-    return {
-      ...safeRest,
-      locationCountry,
-      remotePolicy,
-      employmentType: normalizedEmploymentType || undefined,
-      seniority: normalizedSeniority || undefined
-    };
-  };
 
   const handleAIAnalysis = async () => {
     if (!jdText.trim()) return;
@@ -372,68 +228,18 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }
   };
 
-  const sanitizePayloadForSubmit = (payload: Partial<JobPosting>): Partial<JobPosting> => {
-    const cleaned: Record<string, unknown> = { ...payload };
-    for (const [key, value] of Object.entries(cleaned)) {
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        cleaned[key] = trimmed;
-        if (trimmed === '' && key !== 'companyWebsite') {
-          delete cleaned[key];
-        }
-      }
-    }
-
-    // Optional enums: only include if they match the known values.
-    if (cleaned.remotePolicy && !Object.values(RemotePolicy).includes(cleaned.remotePolicy as RemotePolicy)) {
-      delete cleaned.remotePolicy;
-    }
-    if (cleaned.employmentType && !Object.values(EmploymentType).includes(cleaned.employmentType as EmploymentType)) {
-      delete cleaned.employmentType;
-    }
-    if (cleaned.seniority && !Object.values(SeniorityLevel).includes(cleaned.seniority as SeniorityLevel)) {
-      delete cleaned.seniority;
-    }
-
-    // Tags must be a string[] (empty arrays are fine but don't add value).
-    if (cleaned.tags && !Array.isArray(cleaned.tags)) {
-      delete cleaned.tags;
-    }
-    if (Array.isArray(cleaned.tags) && cleaned.tags.length === 0) {
-      delete cleaned.tags;
-    }
-
-    return cleaned as Partial<JobPosting>;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedSubmitterName = submitterName.trim();
     const trimmedSubmitterEmail = submitterEmail.trim();
     const trimmedExternalLink = (formData.externalLink || '').trim();
-    const nextFieldErrors: SubmissionFieldErrors = {};
-
-    if (!trimmedExternalLink) {
-      nextFieldErrors.externalLink = 'Apply link is required.';
-    }
-    if (!formData.roleTitle?.trim()) {
-      nextFieldErrors.roleTitle = 'Role title is required.';
-    }
-    if (!formData.companyName?.trim()) {
-      nextFieldErrors.companyName = 'Company name is required.';
-    }
-    if (!formData.locationCountry) {
-      nextFieldErrors.locationCountry = 'Country is required.';
-    }
-    if (!formData.locationCity?.trim()) {
-      nextFieldErrors.locationCity = 'City is required.';
-    }
-    if (!isAdminMode && !trimmedSubmitterName) {
-      nextFieldErrors.submitterName = 'Your name is required.';
-    }
-    if (!isAdminMode && !trimmedSubmitterEmail) {
-      nextFieldErrors.submitterEmail = 'Your email is required.';
-    }
+    const nextFieldErrors = validateRequiredFields({
+      formData,
+      isAdminMode,
+      trimmedSubmitterName,
+      trimmedSubmitterEmail,
+      trimmedExternalLink
+    });
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
@@ -476,7 +282,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		      setTimeout(() => successHeadingRef.current?.focus(), 0);
 		    } catch (err) {
 		      const message = err instanceof Error ? err.message : 'Failed to submit job. Please try again.';
-		      setFriendlySubmissionError(message);
+          const mapped = mapSubmissionError(message);
+          if (Object.keys(mapped.fieldErrors).length > 0) {
+            setFieldErrors(mapped.fieldErrors);
+          }
+		      setError(mapped.message);
 		      scrollToTop();
 		      setTimeout(() => errorRef.current?.focus(), 0);
 		    } finally {
