@@ -141,12 +141,41 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
    - `ADMIN_USERNAME=<admin-username>`
    - `ADMIN_PASSWORD_HASH=<bcrypt-hash>`
    - `ADMIN_TOKEN_SECRET=<at-least-32-char-secret>`
-   - `CLIENT_ORIGIN=https://<your-vercel-domain>.vercel.app`
+   - `CLIENT_ORIGIN=https://fintechcommons.com,https://<your-vercel-domain>.vercel.app`
    - `TRUST_PROXY=1`
 5. Optional frontend env:
    - `VITE_API_BASE_URL=/api` (default already uses `/api`)
 6. Deploy and verify API health:
    - `GET https://<your-vercel-domain>.vercel.app/api/health`
+
+### Production Environment Notes
+- `CLIENT_ORIGIN` must be a comma-separated allowlist for every public origin hitting the API.
+- Include both the custom domain and Vercel domain during beta:
+  - `https://fintechcommons.com`
+  - `https://common-jobs.vercel.app` (or current Vercel alias)
+- If browser requests fail but `curl` works, check `CLIENT_ORIGIN` first.
+
+### Production Verification Commands
+```bash
+# 1) Health
+curl -s https://fintechcommons.com/api/health
+
+# 2) Browse search payload
+curl -s -X POST https://fintechcommons.com/api/jobs/search \
+  -H "content-type: application/json" \
+  -d '{"feedType":"direct","filters":{"keyword":"","remotePolicies":[],"seniorityLevels":[],"employmentTypes":[],"dateRange":"all","locations":[]}}'
+
+# 3) Submit payload
+curl -s -X POST https://fintechcommons.com/api/jobs/submissions \
+  -H "content-type: application/json" \
+  -d '{"companyName":"Smoke Test Co","roleTitle":"Smoke Test Role","externalLink":"https://example.com/jobs/smoke","locationCountry":"Canada","locationCity":"Toronto","remotePolicy":"Remote","submitterName":"Smoke","submitterEmail":"smoke@example.com"}'
+
+# 4) Admin runtime probe
+TOKEN=$(curl -s -X POST https://fintechcommons.com/api/auth/admin-login \
+  -H "content-type: application/json" \
+  -d '{"username":"<ADMIN_USERNAME>","password":"<ADMIN_PASSWORD>"}' | jq -r '.token')
+curl -s https://fintechcommons.com/api/admin/runtime -H "authorization: Bearer $TOKEN"
+```
 
 ## Post-Deploy Smoke Test Checklist
 1. Browse page loads and returns jobs.
@@ -161,7 +190,7 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
 
 ## Public Beta Tester Instructions (Copy/Paste)
 Public link:
-- `https://common-jobs.vercel.app`
+- `https://fintechcommons.com`
 
 What to test:
 1. Browse and search for 1-2 roles.
