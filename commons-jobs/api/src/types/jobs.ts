@@ -3,6 +3,7 @@ export type EmploymentType = 'Full-time' | 'Contract' | 'Internship';
 export type SeniorityLevel = 'Junior' | 'Mid-Level' | 'Senior' | 'Lead' | 'Executive';
 export type JobSourceType = 'Direct' | 'Aggregated';
 export type JobStatus = 'pending' | 'active' | 'rejected' | 'archived';
+export type JobSortOption = 'newest' | 'most_clicked' | 'company_az';
 
 export interface JobPosting {
   id: string;
@@ -38,4 +39,10 @@ export interface JobFilterState {
   employmentTypes: EmploymentType[];
   dateRange: 'all' | '24h' | '7d' | '30d';
   locations: string[];
+}
+
+export interface JobSearchFacets {
+  remotePolicies: Record<RemotePolicy, number>;
+  employmentTypes: Record<EmploymentType, number>;
+  seniorityLevels: Record<SeniorityLevel, number>;
 }

@@ -1,11 +1,19 @@
-import { JobPosting, JobFilterState, JobStatus } from '../types';
+import { JobPosting, JobFilterState, JobSearchFacets, JobStatus } from '../types';
 import { requestJson, requestVoid } from './apiClient';
 
 const ADMIN_TOKEN_KEY = 'commons_jobs_admin_token';
 const JOB_SEARCH_CACHE_TTL_MS = 15_000;
 
 type FeedType = 'direct' | 'aggregated';
-type CacheEntry = { at: number; jobs: JobPosting[] };
+type JobsSearchResponse = {
+  jobs: JobPosting[];
+  total: number;
+  page: number;
+  pageSize: number;
+  facets: JobSearchFacets;
+  meta?: { companyCapApplied?: boolean };
+};
+type CacheEntry = { at: number; response: JobsSearchResponse };
 
 const getToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
 const setToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
@@ -38,21 +46,47 @@ export const getJobs = async (
   filters: JobFilterState,
   feedType: FeedType,
   signal?: AbortSignal
-): Promise<JobPosting[]> => {
+): Promise<JobsSearchResponse> => {
   const cacheKey = buildJobsCacheKey(filters, feedType);
   const cached = jobSearchCache.get(cacheKey);
   if (cached && Date.now() - cached.at < JOB_SEARCH_CACHE_TTL_MS) {
-    return cached.jobs;
+    return cached.response;
   }
 
-  const data = await requestJson<{ jobs: JobPosting[] }>('/jobs/search', {
+  const data = await requestJson<Partial<JobsSearchResponse> & { jobs: JobPosting[] }>('/jobs/search', {
     method: 'POST',
-    body: { filters, feedType },
+    body: {
+      filters: {
+        keyword: filters.keyword,
+        remotePolicies: filters.remotePolicies,
+        seniorityLevels: filters.seniorityLevels,
+        employmentTypes: filters.employmentTypes,
+        dateRange: filters.dateRange,
+        locations: filters.locations
+      },
+      feedType,
+      sort: filters.sort,
+      page: filters.page,
+      pageSize: filters.pageSize
+    },
     signal
   });
 
-  jobSearchCache.set(cacheKey, { at: Date.now(), jobs: data.jobs });
-  return data.jobs;
+  const response: JobsSearchResponse = {
+    jobs: data.jobs || [],
+    total: typeof data.total === 'number' ? data.total : (data.jobs || []).length,
+    page: typeof data.page === 'number' ? data.page : filters.page,
+    pageSize: typeof data.pageSize === 'number' ? data.pageSize : filters.pageSize,
+    facets: data.facets || {
+      remotePolicies: { Onsite: 0, Hybrid: 0, Remote: 0 },
+      employmentTypes: { 'Full-time': 0, Contract: 0, Internship: 0 },
+      seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
+    },
+    meta: data.meta
+  };
+
+  jobSearchCache.set(cacheKey, { at: Date.now(), response });
+  return response;
 };
 
 export const __clearJobSearchCacheForTests = (): void => {

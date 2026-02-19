@@ -8,7 +8,17 @@ vi.mock('../components/AdminDashboard', () => ({
 }));
 
 vi.mock('../services/jobService', () => ({
-  getJobs: vi.fn().mockResolvedValue([]),
+  getJobs: vi.fn().mockResolvedValue({
+    jobs: [],
+    total: 0,
+    page: 1,
+    pageSize: 30,
+    facets: {
+      remotePolicies: { Onsite: 0, Hybrid: 0, Remote: 0 },
+      employmentTypes: { 'Full-time': 0, Contract: 0, Internship: 0 },
+      seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
+    }
+  }),
   getJobById: vi.fn().mockResolvedValue(undefined),
   adminLogin: vi.fn().mockResolvedValue(false),
   adminLogout: vi.fn(),

@@ -83,6 +83,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Metadata Row */}
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 mb-5">
+        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#eef7f6] text-[#0f766e] border border-[#d7efec]">
+          <Globe size={10} className="text-[#2a9f96]" />
+          via {job.externalSource || 'Direct'}
+        </div>
         {(job.locationCity || job.locationCountry) && (
             <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gray-100 text-gray-700">
                 <MapPin size={10} className="text-gray-400"/>
@@ -116,10 +120,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
            <div className="flex items-center gap-1.5">
                 <Clock size={12} />
                 <span>{dateLabel}</span>
-           </div>
-           <div className="flex items-center gap-1.5">
-                <Globe size={12} />
-                <span>via {job.externalSource || 'Direct'}</span>
            </div>
         </div>
 

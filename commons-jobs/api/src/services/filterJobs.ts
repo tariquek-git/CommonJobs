@@ -1,4 +1,8 @@
-import { JobFilterState, JobPosting } from '../types/jobs.js';
+import { EmploymentType, JobFilterState, JobPosting, JobSearchFacets, JobSortOption, RemotePolicy, SeniorityLevel } from '../types/jobs.js';
+
+const REMOTE_POLICY_VALUES: RemotePolicy[] = ['Onsite', 'Hybrid', 'Remote'];
+const EMPLOYMENT_TYPE_VALUES: EmploymentType[] = ['Full-time', 'Contract', 'Internship'];
+const SENIORITY_VALUES: SeniorityLevel[] = ['Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive'];
 
 const withinDateRange = (postedDate: string, range: JobFilterState['dateRange']) => {
   if (range === 'all') return true;
@@ -15,9 +19,11 @@ const withinDateRange = (postedDate: string, range: JobFilterState['dateRange'])
 export const filterPublicJobs = (
   jobs: JobPosting[],
   filters: JobFilterState,
-  feedType: 'direct' | 'aggregated'
+  feedType: 'direct' | 'aggregated',
+  sort: JobSortOption = 'newest'
 ): JobPosting[] => {
-  return jobs
+  return sortPublicJobs(
+    jobs
     .filter((job) => {
       if (job.status !== 'active') return false;
 
@@ -60,6 +66,59 @@ export const filterPublicJobs = (
       }
 
       return true;
-    })
-    .sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+    }),
+    sort,
+    feedType
+  );
+};
+
+export const sortPublicJobs = (
+  jobs: JobPosting[],
+  sort: JobSortOption,
+  feedType: 'direct' | 'aggregated'
+): JobPosting[] => {
+  const input = [...jobs];
+  switch (sort) {
+    case 'most_clicked': {
+      if (feedType !== 'direct') {
+        return input.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+      }
+      return input.sort((a, b) => {
+        const diff = (b.clicks || 0) - (a.clicks || 0);
+        if (diff !== 0) return diff;
+        return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
+      });
+    }
+    case 'company_az':
+      return input.sort((a, b) => {
+        const companyDiff = a.companyName.localeCompare(b.companyName);
+        if (companyDiff !== 0) return companyDiff;
+        return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
+      });
+    case 'newest':
+    default:
+      return input.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+  }
+};
+
+export const buildSearchFacets = (jobs: JobPosting[]): JobSearchFacets => {
+  const facets: JobSearchFacets = {
+    remotePolicies: { Onsite: 0, Hybrid: 0, Remote: 0 },
+    employmentTypes: { 'Full-time': 0, Contract: 0, Internship: 0 },
+    seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
+  };
+
+  for (const job of jobs) {
+    if (job.remotePolicy && REMOTE_POLICY_VALUES.includes(job.remotePolicy)) {
+      facets.remotePolicies[job.remotePolicy] += 1;
+    }
+    if (job.employmentType && EMPLOYMENT_TYPE_VALUES.includes(job.employmentType)) {
+      facets.employmentTypes[job.employmentType] += 1;
+    }
+    if (job.seniority && SENIORITY_VALUES.includes(job.seniority)) {
+      facets.seniorityLevels[job.seniority] += 1;
+    }
+  }
+
+  return facets;
 };

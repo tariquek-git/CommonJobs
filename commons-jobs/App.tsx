@@ -3,7 +3,7 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import Header from './components/Header';
 import JobFilters from './components/JobFilters';
 import JobCard from './components/JobCard';
-import { JobFilterState, JobPosting } from './types';
+import { JobFilterState, JobPosting, JobSearchFacets, JobSortOption } from './types';
 import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
@@ -18,6 +18,12 @@ const WhyWhoWhat = React.lazy(() => import('./components/WhyWhoWhat'));
 const FAQ = React.lazy(() => import('./components/FAQ'));
 const JobDetailModal = React.lazy(() => import('./components/JobDetailModal'));
 
+const DEFAULT_FACETS: JobSearchFacets = {
+  remotePolicies: { Onsite: 0, Hybrid: 0, Remote: 0 },
+  employmentTypes: { 'Full-time': 0, Contract: 0, Internship: 0 },
+  seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'browse' | 'submit' | 'admin' | 'terms' | 'about' | 'faq'>('browse');
   
@@ -25,6 +31,9 @@ const App: React.FC = () => {
   const [feedType, setFeedType] = useState<'direct' | 'aggregated'>('direct');
   
   const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [facets, setFacets] = useState<JobSearchFacets>(DEFAULT_FACETS);
+  const [companyCapApplied, setCompanyCapApplied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -53,7 +62,10 @@ const App: React.FC = () => {
     seniorityLevels: [], 
     employmentTypes: [],
     locations: [],
-    dateRange: 'all'
+    dateRange: 'all',
+    sort: 'newest',
+    page: 1,
+    pageSize: 30
   });
 
   // URL Sync
@@ -68,7 +80,7 @@ const App: React.FC = () => {
 
     if (keyword) {
         setSearchQuery(keyword);
-        setFilters(prev => ({ ...prev, keyword }));
+        setFilters(prev => ({ ...prev, keyword, page: 1 }));
     }
 
     if (feed === 'aggregated') {
@@ -110,6 +122,39 @@ const App: React.FC = () => {
     () => filters.remotePolicies.length + filters.employmentTypes.length + filters.seniorityLevels.length,
     [filters.employmentTypes.length, filters.remotePolicies.length, filters.seniorityLevels.length]
   );
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalJobs / Math.max(1, filters.pageSize))),
+    [filters.pageSize, totalJobs]
+  );
+
+  const activeFilterPills = useMemo(() => {
+    const pills: Array<{ key: string; label: string; onRemove: () => void }> = [];
+    filters.remotePolicies.forEach((value) =>
+      pills.push({
+        key: `remote-${value}`,
+        label: value,
+        onRemove: () =>
+          setFilters((prev) => ({ ...prev, remotePolicies: prev.remotePolicies.filter((entry) => entry !== value), page: 1 }))
+      })
+    );
+    filters.employmentTypes.forEach((value) =>
+      pills.push({
+        key: `employment-${value}`,
+        label: value,
+        onRemove: () =>
+          setFilters((prev) => ({ ...prev, employmentTypes: prev.employmentTypes.filter((entry) => entry !== value), page: 1 }))
+      })
+    );
+    filters.seniorityLevels.forEach((value) =>
+      pills.push({
+        key: `seniority-${value}`,
+        label: value,
+        onRemove: () =>
+          setFilters((prev) => ({ ...prev, seniorityLevels: prev.seniorityLevels.filter((entry) => entry !== value), page: 1 }))
+      })
+    );
+    return pills;
+  }, [filters.employmentTypes, filters.remotePolicies, filters.seniorityLevels]);
 
   useEffect(() => {
     if (!showAdminLogin) return;
@@ -132,18 +177,10 @@ const App: React.FC = () => {
         setLoadError(null);
         try {
           const data = await getJobs(filters, feedType, controller.signal);
-          // Ranking Logic: Tier 1 (Direct/Verified) -> Date
-          const rankedData = [...data].sort((a, b) => {
-             // For Aggregated feed, just sort by date
-             if (feedType === 'aggregated') {
-                 return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
-             }
-             // For Direct feed
-             if (a.sourceType === 'Direct' && b.sourceType !== 'Direct') return -1;
-             if (a.sourceType !== 'Direct' && b.sourceType === 'Direct') return 1;
-             return new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
-          });
-          setJobs(rankedData);
+          setJobs(data.jobs);
+          setTotalJobs(data.total);
+          setFacets(data.facets);
+          setCompanyCapApplied(Boolean(data.meta?.companyCapApplied));
         } catch (error) {
           if (controller.signal.aborted) return;
           console.error(error);
@@ -175,7 +212,7 @@ const App: React.FC = () => {
       window.clearTimeout(keywordDebounceRef.current);
     }
     keywordDebounceRef.current = window.setTimeout(() => {
-      setFilters((prev) => ({ ...prev, keyword: val.trim() }));
+      setFilters((prev) => ({ ...prev, keyword: val.trim(), page: 1 }));
     }, 250);
   };
 
@@ -186,7 +223,7 @@ const App: React.FC = () => {
       }
       setSearchQuery('');
       setSearchUsedFallback(false);
-      setFilters(prev => ({ ...prev, keyword: '' }));
+      setFilters(prev => ({ ...prev, keyword: '', page: 1 }));
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
@@ -207,7 +244,8 @@ const App: React.FC = () => {
                     remotePolicies: normalized.remotePolicies,
                     employmentTypes: normalized.employmentTypes,
                     seniorityLevels: normalized.seniorityLevels,
-                    dateRange: normalized.dateRange || 'all'
+                    dateRange: normalized.dateRange || 'all',
+                    page: 1
                 }));
             }
         } finally {
@@ -294,7 +332,7 @@ const App: React.FC = () => {
               className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pr-1`}
             >
                 <div className="mb-8">
-                    <JobFilters filters={filters} setFilters={setFilters} />
+                    <JobFilters filters={filters} facets={facets} setFilters={setFilters} />
                 </div>
                 
 	                <div className="pt-8 border-t border-gray-200">
@@ -375,7 +413,10 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 mb-6">
                 <button
                     type="button"
-                    onClick={() => setFeedType('direct')}
+                    onClick={() => {
+                      setFeedType('direct');
+                      setFilters((prev) => ({ ...prev, page: 1 }));
+                    }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all border ${
                         feedType === 'direct'
                         ? 'bg-gray-900 text-white border-gray-900 shadow-md transform scale-105'
@@ -388,7 +429,14 @@ const App: React.FC = () => {
                 </button>
                 <button
                     type="button"
-                    onClick={() => setFeedType('aggregated')}
+                    onClick={() => {
+                      setFeedType('aggregated');
+                      setFilters((prev) => ({
+                        ...prev,
+                        page: 1,
+                        sort: prev.sort === 'most_clicked' ? 'newest' : prev.sort
+                      }));
+                    }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all border ${
                         feedType === 'aggregated'
                         ? 'bg-[#2EC4B6] text-[#0B132B] border-[#2EC4B6] shadow-md transform scale-105'
@@ -401,6 +449,41 @@ const App: React.FC = () => {
                 </button>
             </div>
 
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <label htmlFor="sort-jobs" className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Sort
+              </label>
+              <select
+                id="sort-jobs"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                value={filters.sort}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, sort: event.target.value as JobSortOption, page: 1 }))
+                }
+              >
+                <option value="newest">Newest</option>
+                <option value="most_clicked" disabled={feedType === 'aggregated'}>
+                  Most clicked{feedType === 'aggregated' ? ' (Direct only)' : ''}
+                </option>
+                <option value="company_az">Company A-Z</option>
+              </select>
+              {activeFilterPills.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeFilterPills.map((pill) => (
+                    <button
+                      key={pill.key}
+                      type="button"
+                      onClick={pill.onRemove}
+                      className="inline-flex items-center gap-1 rounded-full border border-[#cdece8] bg-[#f4fbfa] px-2.5 py-1 text-xs font-semibold text-[#0b5f58]"
+                    >
+                      {pill.label}
+                      <X size={12} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Feed Info / Disclaimer */}
             {feedType === 'aggregated' && (
                 <div className="mb-6 p-4 bg-[#e8f9f6] border border-[#cdece8] rounded-xl text-sm text-[#0f5f59] flex items-start gap-3 animate-fade-in">
@@ -408,6 +491,9 @@ const App: React.FC = () => {
                     <div>
                         <p className="font-bold">Automated Canadian Fintech Feed</p>
                         <p className="opacity-80">This feed pulls public listings from major Canadian banks and fintechs posted in the last 14 days. These are not manually verified by the Commons.</p>
+                        {companyCapApplied && (
+                          <p className="mt-1 text-xs font-semibold opacity-90">Company diversity active: max 5 active roles per company.</p>
+                        )}
                     </div>
                 </div>
             )}
@@ -436,15 +522,40 @@ const App: React.FC = () => {
                             No {feedType === 'aggregated' ? 'Canadian' : ''} opportunities found matching your filters.
                         </div>
                     ) : (
-                        <div className="jobs-grid grid gap-4 xl:gap-5 animate-slide-up" aria-live="polite" aria-busy={loading}>
-                            {jobs.map(job => (
-                                <JobCard 
-                                    key={job.id} 
-                                    job={job} 
-                                    onSelect={handleSelectJob}
-                                />
-                            ))}
-                        </div>
+                        <>
+                          <div className="jobs-grid grid gap-4 xl:gap-5 animate-slide-up" aria-live="polite" aria-busy={loading}>
+                              {jobs.map(job => (
+                                  <JobCard 
+                                      key={job.id} 
+                                      job={job} 
+                                      onSelect={handleSelectJob}
+                                  />
+                              ))}
+                          </div>
+                          {totalPages > 1 && (
+                            <div className="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                                disabled={filters.page <= 1}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Previous
+                              </button>
+                              <div className="text-sm text-gray-600">
+                                Page {filters.page} of {totalPages} · {totalJobs} roles
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setFilters((prev) => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
+                                disabled={filters.page >= totalPages}
+                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          )}
+                        </>
                     )}
                 </>
             )}

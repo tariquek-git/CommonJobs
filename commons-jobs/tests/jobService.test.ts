@@ -48,24 +48,28 @@ describe('jobService', () => {
   it('returns jobs from search endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ jobs: [{ id: '1', roleTitle: 'Engineer' }] })
+      json: async () => ({ jobs: [{ id: '1', roleTitle: 'Engineer' }], total: 1, page: 1, pageSize: 30 })
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const jobs = await getJobs(
+    const response = await getJobs(
       {
         keyword: '',
         remotePolicies: [],
         seniorityLevels: [],
         employmentTypes: [],
         dateRange: 'all',
-        locations: []
+        locations: [],
+        sort: 'newest',
+        page: 1,
+        pageSize: 30
       },
       'direct'
     );
 
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0].id).toBe('1');
+    expect(response.jobs).toHaveLength(1);
+    expect(response.jobs[0].id).toBe('1');
+    expect(response.total).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -82,14 +86,17 @@ describe('jobService', () => {
       seniorityLevels: [],
       employmentTypes: [],
       dateRange: 'all' as const,
-      locations: []
+      locations: [],
+      sort: 'newest' as const,
+      page: 1,
+      pageSize: 30
     };
 
     const first = await getJobs(filters, 'direct');
     const second = await getJobs(filters, 'direct');
 
-    expect(first[0].id).toBe('cached-1');
-    expect(second[0].id).toBe('cached-1');
+    expect(first.jobs[0].id).toBe('cached-1');
+    expect(second.jobs[0].id).toBe('cached-1');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -108,7 +115,10 @@ describe('jobService', () => {
         seniorityLevels: [],
         employmentTypes: [],
         dateRange: 'all',
-        locations: []
+        locations: [],
+        sort: 'newest',
+        page: 1,
+        pageSize: 30
       },
       'direct',
       controller.signal

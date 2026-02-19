@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterPublicJobs } from '../src/services/filterJobs.js';
+import { buildSearchFacets, filterPublicJobs } from '../src/services/filterJobs.js';
 import { JobPosting } from '../src/types/jobs.js';
 
 const now = Date.now();
@@ -19,7 +19,7 @@ const jobs: JobPosting[] = [
     employmentType: 'Full-time',
     seniority: 'Senior',
     tags: ['TypeScript'],
-    clicks: 0
+    clicks: 1
   },
   {
     id: '2',
@@ -46,7 +46,7 @@ const jobs: JobPosting[] = [
     status: 'active',
     sourceType: 'Direct',
     isVerified: true,
-    clicks: 0
+    clicks: 5
   }
 ];
 
@@ -104,5 +104,62 @@ describe('filterPublicJobs', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('1');
+  });
+
+  it('supports sorting by click volume for direct feed', () => {
+    const result = filterPublicJobs(
+      jobs,
+      {
+        keyword: '',
+        remotePolicies: [],
+        seniorityLevels: [],
+        employmentTypes: [],
+        dateRange: 'all',
+        locations: []
+      },
+      'direct',
+      'most_clicked'
+    );
+
+    expect(result.map((job) => job.id)).toEqual(['3', '1']);
+  });
+
+  it('supports sorting alphabetically by company', () => {
+    const result = filterPublicJobs(
+      jobs,
+      {
+        keyword: '',
+        remotePolicies: [],
+        seniorityLevels: [],
+        employmentTypes: [],
+        dateRange: 'all',
+        locations: []
+      },
+      'direct',
+      'company_az'
+    );
+
+    expect(result.map((job) => job.companyName)).toEqual(['Acme', 'Gamma']);
+  });
+
+  it('builds facets for remote policy, employment type, and seniority', () => {
+    const result = filterPublicJobs(
+      jobs,
+      {
+        keyword: '',
+        remotePolicies: [],
+        seniorityLevels: [],
+        employmentTypes: [],
+        dateRange: 'all',
+        locations: []
+      },
+      'direct'
+    );
+
+    const facets = buildSearchFacets(result);
+    expect(facets.remotePolicies.Remote).toBe(1);
+    expect(facets.remotePolicies.Hybrid).toBe(0);
+    expect(facets.employmentTypes['Full-time']).toBe(1);
+    expect(facets.seniorityLevels.Senior).toBe(1);
   });
 });

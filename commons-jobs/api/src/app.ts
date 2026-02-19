@@ -6,7 +6,7 @@ import { AppEnv, parseAllowedOrigins } from './config/env.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { applySecurityHeaders } from './lib/securityHeaders.js';
 import { badRequest, notFound, tooManyRequests, unauthorized } from './lib/http.js';
-import { filterPublicJobs } from './services/filterJobs.js';
+import { buildSearchFacets, filterPublicJobs, sortPublicJobs } from './services/filterJobs.js';
 import {
   adminCreateJobSchema,
   adminStatusSchema,
@@ -131,8 +131,26 @@ export const buildApp = (
     if (!parsed.success) return badRequest(reply, 'Invalid search request');
 
     const jobs = await repository.list();
-    const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType);
-    return { jobs: await hydrateClicks(filtered) };
+    const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType, 'newest');
+    const hydrated = await hydrateClicks(filtered);
+    const sorted = sortPublicJobs(hydrated, parsed.data.sort, parsed.data.feedType);
+    const total = sorted.length;
+    const page = parsed.data.page;
+    const pageSize = parsed.data.pageSize;
+    const offset = (page - 1) * pageSize;
+    const pagedJobs = sorted.slice(offset, offset + pageSize);
+    const facets = buildSearchFacets(hydrated);
+
+    return {
+      jobs: pagedJobs,
+      total,
+      page,
+      pageSize,
+      facets,
+      meta: {
+        companyCapApplied: parsed.data.feedType === 'aggregated'
+      }
+    };
   });
 
   app.get('/jobs/:id', async (request, reply) => {

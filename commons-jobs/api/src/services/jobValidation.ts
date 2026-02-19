@@ -112,6 +112,9 @@ export const adminStatusSchema = z.object({
 
 export const searchSchema = z.object({
   feedType: z.enum(['direct', 'aggregated']),
+  sort: z.enum(['newest', 'most_clicked', 'company_az']).default('newest'),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(60).default(30),
   filters: z.object({
     keyword: z.string().default(''),
     remotePolicies: z.array(remotePolicySchema).default([]),

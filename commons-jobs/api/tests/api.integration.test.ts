@@ -121,6 +121,46 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('jobs search supports sort, pagination, and facets metadata', async () => {
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      payload: {
+        feedType: 'direct',
+        sort: 'company_az',
+        page: 1,
+        pageSize: 1,
+        filters: {
+          keyword: '',
+          remotePolicies: [],
+          seniorityLevels: [],
+          employmentTypes: [],
+          dateRange: 'all',
+          locations: []
+        }
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      jobs: Array<{ companyName: string }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      facets: { remotePolicies: Record<string, number> };
+      meta: { companyCapApplied: boolean };
+    };
+    expect(body.total).toBeGreaterThanOrEqual(body.jobs.length);
+    expect(body.page).toBe(1);
+    expect(body.pageSize).toBe(1);
+    expect(body.facets.remotePolicies).toBeTruthy();
+    expect(body.meta.companyCapApplied).toBe(false);
+
+    await app.close();
+  });
+
   it('AI endpoints are rate limited by request.ip and not bypassed by spoofed x-forwarded-for', async () => {
     const stubAi = {
       analyzeJobDescription: async () => ({ ok: true }),

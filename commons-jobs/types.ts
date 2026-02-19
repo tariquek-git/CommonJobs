@@ -58,6 +58,13 @@ export interface JobPosting {
 }
 
 export type DateRangeOption = 'all' | '24h' | '7d' | '30d';
+export type JobSortOption = 'newest' | 'most_clicked' | 'company_az';
+
+export interface JobSearchFacets {
+  remotePolicies: Record<RemotePolicy, number>;
+  employmentTypes: Record<EmploymentType, number>;
+  seniorityLevels: Record<SeniorityLevel, number>;
+}
 
 export interface JobFilterState {
   keyword: string;
@@ -66,4 +73,7 @@ export interface JobFilterState {
   employmentTypes: EmploymentType[];
   dateRange: DateRangeOption;
   locations: string[];
+  sort: JobSortOption;
+  page: number;
+  pageSize: number;
 }
