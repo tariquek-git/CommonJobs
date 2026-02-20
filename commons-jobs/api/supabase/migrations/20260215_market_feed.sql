@@ -1,15 +1,10 @@
--- Market Feed support columns for aggregated jobs
-alter table public.jobs
-  add column if not exists source_id text,
-  add column if not exists original_source text,
-  add column if not exists is_aggregated boolean not null default false,
-  add column if not exists external_posted_at timestamptz;
+-- Deprecated migration (legacy table name).
+-- This project now stores jobs in public.job_board_jobs via:
+--   20260216_job_board_storage.sql
+-- Keep this file as a no-op so old docs/scripts do not fail on a missing public.jobs table.
 
--- Unique dedupe key for external imports
-create unique index if not exists jobs_source_id_unique_idx
-  on public.jobs (source_id)
-  where source_id is not null;
-
--- Queue query performance
-create index if not exists jobs_aggregated_pending_idx
-  on public.jobs (is_aggregated, status, external_posted_at desc);
+do $$
+begin
+  raise notice 'Skipping deprecated migration 20260215_market_feed.sql; use 20260216_job_board_storage.sql instead.';
+end
+$$;

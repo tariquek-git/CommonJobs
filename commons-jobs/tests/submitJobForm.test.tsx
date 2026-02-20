@@ -221,6 +221,22 @@ describe('SubmitJobForm', () => {
     });
   });
 
+  it('shows guidance instead of blocking when auto-fill cannot extract from link alone', async () => {
+    const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
+    render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/link to apply/i), {
+      target: { value: 'https://jobs.lever.co/example/123' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /auto-fill intelligence/i }));
+
+    await waitFor(() => {
+      const alert = screen.getByRole('alert');
+      expect(alert.textContent).toContain('Some hosts block auto-extraction');
+    });
+    expect(analyzeJobDescriptionMock).not.toHaveBeenCalled();
+  });
+
   it('maps invalid submission payload errors to actionable guidance', async () => {
     submitJobMock.mockRejectedValueOnce(new Error('Invalid submission payload'));
     const SubmitJobForm = (await import('../components/SubmitJobForm')).default;

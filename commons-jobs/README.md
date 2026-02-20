@@ -6,7 +6,7 @@ Public job board MVP with moderation, admin controls, and anti-abuse protections
 - Frontend: React 18 + TypeScript + Vite
 - Backend: Fastify + TypeScript + Zod (served as a Vercel serverless function via `/api/*`)
 - Storage: Supabase recommended for deployment (`STORAGE_PROVIDER=supabase`)
-- Auth: Admin username + bcrypt password hash + signed bearer token
+- Auth: Admin username + bcrypt password hash + signed HttpOnly cookie session
 - Package manager: `npm`
 - CI: GitHub Actions (`lint`, `typecheck`, `test`, `build`)
 
@@ -61,6 +61,7 @@ Paste output into `ADMIN_PASSWORD_HASH` in `.env`.
 Important:
 - In non-test mode, API fails fast at boot if `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, or `ADMIN_TOKEN_SECRET` are missing/weak.
 - `ADMIN_TOKEN_SECRET` must be at least 32 chars.
+- `ADMIN_COOKIE_NAME` is optional (defaults to `commons_jobs_admin`).
 - `TRUST_PROXY=false` is the safe default. If deployed behind one trusted reverse proxy, set `TRUST_PROXY=1`.
 - If `STORAGE_PROVIDER=supabase`, API fails fast unless `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set.
 - Production mode rejects `STORAGE_PROVIDER=file` to prevent ephemeral data loss.
@@ -141,6 +142,7 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
    - `ADMIN_USERNAME=<admin-username>`
    - `ADMIN_PASSWORD_HASH=<bcrypt-hash>`
    - `ADMIN_TOKEN_SECRET=<at-least-32-char-secret>`
+   - `ADMIN_COOKIE_NAME=commons_jobs_admin` (optional override)
    - `CLIENT_ORIGIN=https://fintechcommons.com,https://<your-vercel-domain>.vercel.app`
    - `TRUST_PROXY=1`
 5. Optional frontend env:
@@ -171,10 +173,10 @@ curl -s -X POST https://fintechcommons.com/api/jobs/submissions \
   -d '{"companyName":"Smoke Test Co","roleTitle":"Smoke Test Role","externalLink":"https://example.com/jobs/smoke","locationCountry":"Canada","locationCity":"Toronto","remotePolicy":"Remote","submitterName":"Smoke","submitterEmail":"smoke@example.com"}'
 
 # 4) Admin runtime probe
-TOKEN=$(curl -s -X POST https://fintechcommons.com/api/auth/admin-login \
+curl -s -c /tmp/commons_admin.cookie -X POST https://fintechcommons.com/api/auth/admin-login \
   -H "content-type: application/json" \
-  -d '{"username":"<ADMIN_USERNAME>","password":"<ADMIN_PASSWORD>"}' | jq -r '.token')
-curl -s https://fintechcommons.com/api/admin/runtime -H "authorization: Bearer $TOKEN"
+  -d '{"username":"<ADMIN_USERNAME>","password":"<ADMIN_PASSWORD>"}'
+curl -s -b /tmp/commons_admin.cookie https://fintechcommons.com/api/admin/runtime
 ```
 
 ## Post-Deploy Smoke Test Checklist

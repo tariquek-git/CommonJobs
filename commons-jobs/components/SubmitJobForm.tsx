@@ -3,7 +3,7 @@ import React, { useState, useEffect, useId, useMemo, useRef } from 'react';
 import { EmploymentType, JobPosting, JobSourceType, RemotePolicy } from '../types';
 import { COUNTRIES, PROVINCES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
-import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, X, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 import { CONTACT_EMAIL } from '../siteConfig';
 import { buildFeedbackMailto } from '../utils/feedbackMailto';
@@ -161,7 +161,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 }) => {
   const isEditing = !!initialData;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isScraping, setIsScraping] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submittedJobId, setSubmittedJobId] = useState<string | null>(null);
@@ -169,7 +168,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<SubmissionFieldErrors>({});
   const [aiFallbackNotice, setAiFallbackNotice] = useState(false);
-  const [scrapeToast, setScrapeToast] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -305,14 +303,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     submitterName
   ]);
 
-  // Auto-clear toast
-  useEffect(() => {
-    if (scrapeToast) {
-      const timer = setTimeout(() => setScrapeToast(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [scrapeToast]);
-
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCountry = e.target.value;
     clearFieldError('locationCountry');
@@ -325,23 +315,19 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
   const handleLinkAutofill = async () => {
     if (!formData.externalLink) {
-        setError('Please enter a link first.');
-        setFieldErrors((prev) => ({ ...prev, externalLink: 'Apply link is required before auto-fill.' }));
-        return;
+      setError('Please enter a link first.');
+      setFieldErrors((prev) => ({ ...prev, externalLink: 'Apply link is required before auto-fill.' }));
+      return;
     }
-    
-    setIsScraping(true);
-    setError(null);
 
-    // Simulate scraping delay then blocking
-    setTimeout(() => {
-        setIsScraping(false);
-        setScrapeToast(true); // Trigger "Blocked by host" toast
-        if (jdInputRef.current) {
-            jdInputRef.current.focus();
-            jdInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, 1200);
+    if (!jdText.trim()) {
+      setError('Some hosts block auto-extraction. Paste the JD text below, then click Generate Summary & Tags.');
+      jdInputRef.current?.focus();
+      jdInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    await handleAIAnalysis();
   };
 
 
@@ -552,16 +538,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 relative">
-      
-      {/* Toast */}
-	      {scrapeToast && (
-	        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 w-[90%] md:w-auto animate-fade-in">
-	            <AlertCircle size={18} className="text-yellow-400 shrink-0" />
-	            <div className="text-sm font-medium">Auto-fill blocked by host. Paste JD below, then generate summary and continue submission.</div>
-	            <button type="button" onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300" aria-label="Close message"><X size={16} /></button>
-	        </div>
-	      )}
-
       <div className="p-6 border-b border-gray-100 bg-gray-50">
         <h2 className="text-xl font-bold text-gray-900 tracking-tight">
           {isEditing ? 'Edit Job' : (isAdminMode ? 'Create Job' : 'Post a Role')}
@@ -632,11 +608,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 <button
                     type="button"
                     onClick={handleLinkAutofill}
-                    disabled={isScraping || !formData.externalLink}
+                    disabled={isAnalyzing || !formData.externalLink}
                     className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50"
                 >
-                    {isScraping ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                    {isScraping ? 'Analyzing...' : 'Auto-Fill Intelligence'}
+                    {isAnalyzing ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                    {isAnalyzing ? 'Analyzing...' : 'Auto-Fill Intelligence'}
                 </button>
              </div>
              
@@ -661,6 +637,9 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     {fieldErrors.externalLink}
                   </p>
                 )}
+                <p className="text-xs text-gray-500">
+                  Some job pages block extraction. If auto-fill can’t read the link, paste the JD text below and continue.
+                </p>
 
 	             {/* JD Paste Fallback */}
 	             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
