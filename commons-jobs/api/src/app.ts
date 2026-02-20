@@ -95,6 +95,24 @@ export const buildApp = (
     }
   });
 
+  // Some browsers/clients send application/json with an empty body for fire-and-forget POSTs.
+  // Normalize that to {} so route-level validation handles it instead of Fastify returning parser 400.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, body, done) => {
+    const rawBody = typeof body === 'string' ? body : body.toString('utf8');
+    const trimmed = rawBody.trim();
+    if (!trimmed) {
+      done(null, {});
+      return;
+    }
+
+    try {
+      done(null, JSON.parse(trimmed));
+    } catch (error) {
+      const parseError = error instanceof Error ? error : new Error('Invalid JSON body');
+      done(parseError, undefined);
+    }
+  });
+
   app.addHook('onRequest', applySecurityHeaders);
   app.setErrorHandler((error, _request, reply) => {
     const statusCode = typeof (error as { statusCode?: number }).statusCode === 'number'

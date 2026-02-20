@@ -682,6 +682,37 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('accepts empty JSON body on click endpoint without parser failure', async () => {
+    const activeJob: JobPosting = {
+      id: 'job-active-empty-json',
+      companyName: 'Acme',
+      companyWebsite: 'https://example.com',
+      roleTitle: 'Active Role',
+      externalLink: 'https://example.com/apply',
+      postedDate: new Date().toISOString(),
+      status: 'active',
+      sourceType: 'Direct',
+      isVerified: true,
+      clicks: 0
+    };
+
+    const app = buildApp(new InMemoryJobRepository([activeJob]), new InMemoryClickRepository(), buildTestEnv());
+
+    const clickRes = await app.inject({
+      method: 'POST',
+      url: '/jobs/job-active-empty-json/click',
+      headers: { 'content-type': 'application/json' },
+      payload: ''
+    });
+
+    expect(clickRes.statusCode).toBe(200);
+    const clickBody = clickRes.json() as { ok: boolean; clicks: number };
+    expect(clickBody.ok).toBe(true);
+    expect(clickBody.clicks).toBe(1);
+
+    await app.close();
+  });
+
   it('click endpoint rate limit applies per request.ip', async () => {
     const activeJob: JobPosting = {
       id: 'job-active',
