@@ -4,6 +4,7 @@ import { createRuntimeContext, stripApiPrefix, type RuntimeContext } from './api
 let runtime: RuntimeContext | null = null;
 let ready: PromiseLike<unknown> | null = null;
 const REQUEST_TIMEOUT_MS = 25_000;
+const SAFE_RETRY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const getRuntime = (): { runtime: RuntimeContext; ready: PromiseLike<unknown> } => {
   if (!runtime || !ready) {
@@ -54,36 +55,70 @@ const forwardToFastify = async (
   });
 };
 
-const handler = async (
-  req: IncomingMessage & { url?: string },
-  res: ServerResponse
-): Promise<void> => {
-  req.url = stripApiPrefix(req.url);
+const sendHandlerError = (res: ServerResponse) => {
+  if (res.headersSent || res.writableEnded || res.destroyed) return;
+  res.statusCode = 500;
+  res.setHeader('content-type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify({ error: 'Internal server error' }));
+};
 
-  // In serverless, cold-start init can occasionally fail (transient env/network issues).
-  // Retry once with a fresh Fastify instance to avoid a persistent first-request 500.
-  const attempt = async () => {
-    const ctx = getRuntime();
-    await ctx.ready;
-    await forwardToFastify(req, res, ctx.runtime);
-  };
+const handler = async (req: IncomingMessage & { url?: string }, res: ServerResponse): Promise<void> => {
+  req.url = stripApiPrefix(req.url);
+  const method = (req.method || 'GET').toUpperCase();
 
   try {
-    await attempt();
+    let ctx = getRuntime();
+    try {
+      await ctx.ready;
+    } catch (error) {
+      console.error('Vercel API init failed, retrying runtime initialization once.', error);
+      try {
+        if (runtime) {
+          await runtime.app.close();
+        }
+      } catch (closeError) {
+        console.error('Failed to close previous Fastify instance after init error.', closeError);
+      } finally {
+        runtime = null;
+        ready = null;
+      }
+
+      ctx = getRuntime();
+      await ctx.ready;
+    }
+
+    await forwardToFastify(req, res, ctx.runtime);
   } catch (error) {
-    console.error('Vercel API init/request failed, retrying once.', error);
+    if (!SAFE_RETRY_METHODS.has(method)) {
+      console.error(`Vercel API request failed without replay for unsafe method ${method}.`, error);
+      sendHandlerError(res);
+      return;
+    }
+
+    console.error(`Vercel API safe request failed for ${method}.`, error);
+    if (res.headersSent || res.writableEnded || res.destroyed) {
+      return;
+    }
+
     try {
       if (runtime) {
         await runtime.app.close();
       }
     } catch (closeError) {
-      console.error('Failed to close previous Fastify instance after error.', closeError);
+      console.error('Failed to close previous Fastify instance after safe-request error.', closeError);
     } finally {
       runtime = null;
       ready = null;
     }
 
-    await attempt();
+    try {
+      const retryCtx = getRuntime();
+      await retryCtx.ready;
+      await forwardToFastify(req, res, retryCtx.runtime);
+    } catch (retryError) {
+      console.error('Vercel API retry for safe request failed.', retryError);
+      sendHandlerError(res);
+    }
   }
 };
 

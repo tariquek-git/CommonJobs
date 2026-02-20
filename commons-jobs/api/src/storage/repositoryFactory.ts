@@ -15,28 +15,11 @@ export type RepositoryBundle = {
 };
 
 const normalizeKey = (value?: string): string => (typeof value === 'string' ? value.trim() : '');
-const looksLikeSupabaseSecret = (value: string): boolean =>
-  value.startsWith('sb_secret_') || value.startsWith('eyJ');
 
 export const resolveSupabaseServiceKey = (
-  configuredKey: string,
-  envInput: NodeJS.ProcessEnv = process.env
+  configuredKey: string
 ): string => {
-  const primary = normalizeKey(configuredKey);
-  if (looksLikeSupabaseSecret(primary)) return primary;
-
-  const legacyCandidates = [
-    normalizeKey(envInput.SUPABASE_SECRET_KEY),
-    normalizeKey(envInput.Vite_annon),
-    normalizeKey(envInput.Vite)
-  ];
-  const fallback = legacyCandidates.find((candidate) => looksLikeSupabaseSecret(candidate));
-
-  if (fallback) {
-    return fallback;
-  }
-
-  return primary;
+  return normalizeKey(configuredKey);
 };
 
 export const createRepositories = (env: AppEnv): RepositoryBundle => {

@@ -8,6 +8,17 @@ import { hashAdminPassword } from '../src/auth/adminPassword.js';
 import { parseEnv } from '../src/config/env.js';
 
 let adminPasswordHash = '';
+class FailingClickRepository {
+  async get() {
+    throw new Error('click store unavailable');
+  }
+  async getMany() {
+    throw new Error('click store unavailable');
+  }
+  async increment() {
+    throw new Error('click store unavailable');
+  }
+}
 
 const buildTestEnv = (overrides: Record<string, string> = {}) =>
   parseEnv({
@@ -307,6 +318,52 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('admin partial update preserves company website when omitted from payload', async () => {
+    const now = new Date().toISOString();
+    const app = buildApp(
+      new InMemoryJobRepository([
+        {
+          id: 'job-1',
+          companyName: 'Acme',
+          companyWebsite: 'https://acme.example',
+          roleTitle: 'Analyst',
+          externalLink: 'https://acme.example/jobs/analyst',
+          postedDate: now,
+          status: 'active',
+          sourceType: 'Direct',
+          isVerified: true,
+          clicks: 0
+        }
+      ]),
+      new InMemoryClickRepository(),
+      buildTestEnv()
+    );
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    expect(loginRes.statusCode).toBe(200);
+    const token = (loginRes.json() as { token: string }).token;
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/admin/jobs/job-1',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        roleTitle: 'Senior Analyst'
+      }
+    });
+
+    expect(patchRes.statusCode).toBe(200);
+    const body = patchRes.json() as { job: JobPosting };
+    expect(body.job.roleTitle).toBe('Senior Analyst');
+    expect(body.job.companyWebsite).toBe('https://acme.example');
+
+    await app.close();
+  });
+
   it('rejects wrong admin password', async () => {
     const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({
@@ -535,6 +592,88 @@ describe('API integration', () => {
       headers: { 'x-forwarded-for': '203.0.113.1' }
     });
     expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('fails open on click hydration failures for public search and detail', async () => {
+    const activeJob: JobPosting = {
+      id: 'job-active',
+      companyName: 'Acme',
+      companyWebsite: 'https://example.com',
+      roleTitle: 'Active Role',
+      externalLink: 'https://example.com/apply',
+      postedDate: new Date().toISOString(),
+      status: 'active',
+      sourceType: 'Direct',
+      isVerified: true,
+      clicks: 7
+    };
+
+    const app = buildApp(new InMemoryJobRepository([activeJob]), new FailingClickRepository() as any, buildTestEnv());
+
+    const search = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      payload: {
+        feedType: 'direct',
+        filters: {
+          keyword: '',
+          remotePolicies: [],
+          seniorityLevels: [],
+          employmentTypes: [],
+          dateRange: 'all',
+          locations: []
+        }
+      }
+    });
+    expect(search.statusCode).toBe(200);
+    const searchBody = search.json() as { jobs: Array<{ clicks: number }> };
+    expect(searchBody.jobs[0].clicks).toBe(7);
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: '/jobs/job-active'
+    });
+    expect(detail.statusCode).toBe(200);
+    const detailBody = detail.json() as { job: { clicks: number } };
+    expect(detailBody.job.clicks).toBe(7);
+
+    await app.close();
+  });
+
+  it('fails open on click hydration failures for admin list', async () => {
+    const activeJob: JobPosting = {
+      id: 'job-active',
+      companyName: 'Acme',
+      companyWebsite: 'https://example.com',
+      roleTitle: 'Active Role',
+      externalLink: 'https://example.com/apply',
+      postedDate: new Date().toISOString(),
+      status: 'active',
+      sourceType: 'Direct',
+      isVerified: true,
+      clicks: 2
+    };
+
+    const app = buildApp(new InMemoryJobRepository([activeJob]), new FailingClickRepository() as any, buildTestEnv());
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    const token = (loginRes.json() as { token: string }).token;
+    expect(loginRes.statusCode).toBe(200);
+
+    const adminList = await app.inject({
+      method: 'GET',
+      url: '/admin/jobs',
+      headers: { authorization: `Bearer ${token}` }
+    });
+    expect(adminList.statusCode).toBe(200);
+    const body = adminList.json() as { jobs: Array<{ clicks: number }> };
+    expect(body.jobs[0].clicks).toBe(2);
 
     await app.close();
   });

@@ -69,7 +69,12 @@ export const buildApp = (
 
   const hydrateClicks = async (jobs: JobPosting[]): Promise<JobPosting[]> => {
     if (jobs.length === 0) return [];
-    const clickMap = await clickRepository.getMany(jobs.map((job) => job.id));
+    let clickMap: Record<string, number> = {};
+    try {
+      clickMap = await clickRepository.getMany(jobs.map((job) => job.id));
+    } catch (error) {
+      app.log.warn({ err: error }, 'Click repository unavailable; continuing with zeroed click counts');
+    }
     return jobs.map((job) => ({
       ...job,
       clicks: clickMap[job.id] ?? job.clicks ?? 0
@@ -166,7 +171,12 @@ export const buildApp = (
 
     const isAdmin = adminGuard(request.headers.authorization);
     if (!isAdmin && job.status !== 'active') return notFound(reply, 'Job not found');
-    const clicks = await clickRepository.get(job.id);
+    let clicks = job.clicks ?? 0;
+    try {
+      clicks = await clickRepository.get(job.id);
+    } catch (error) {
+      app.log.warn({ err: error, jobId: job.id }, 'Click repository unavailable for job detail; defaulting to cached count');
+    }
     return { job: { ...job, clicks } };
   });
 
@@ -364,7 +374,9 @@ export const buildApp = (
     }
 
     const params = request.params as { id: string };
-    const normalized = normalizeIncomingJob((request.body || {}) as Record<string, unknown>);
+    const rawBody = (request.body || {}) as Record<string, unknown>;
+    const hasCompanyWebsite = Object.prototype.hasOwnProperty.call(rawBody, 'companyWebsite');
+    const normalized = normalizeIncomingJob(rawBody);
     const parsed = adminUpdateJobSchema.safeParse(normalized);
     if (!parsed.success) return badRequest(reply, 'Invalid job payload');
 
@@ -377,7 +389,7 @@ export const buildApp = (
         ...current,
         ...Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)),
         externalLink: normalized.externalLink || current.externalLink,
-        companyWebsite: normalized.companyWebsite ?? current.companyWebsite,
+        companyWebsite: hasCompanyWebsite ? (normalized.companyWebsite ?? '') : current.companyWebsite,
         tags: normalized.tags || current.tags
       };
 

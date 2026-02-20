@@ -47,19 +47,8 @@ describe('repositoryFactory', () => {
     expect(repos.clickRepository).toBeInstanceOf(SupabaseClickRepository);
   });
 
-  it('uses legacy secret fallback when configured key is a placeholder', () => {
-    const key = resolveSupabaseServiceKey('rotate-me', {
-      Vite_annon: 'sb_secret_fallback'
-    } as NodeJS.ProcessEnv);
-
-    expect(key).toBe('sb_secret_fallback');
-  });
-
-  it('keeps configured key when it already looks like a Supabase secret', () => {
-    const key = resolveSupabaseServiceKey('sb_secret_primary', {
-      Vite_annon: 'sb_secret_fallback'
-    } as NodeJS.ProcessEnv);
-
-    expect(key).toBe('sb_secret_primary');
+  it('uses only the explicitly configured service key', () => {
+    const key = resolveSupabaseServiceKey('  configured-secret  ');
+    expect(key).toBe('configured-secret');
   });
 });
