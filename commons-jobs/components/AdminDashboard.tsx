@@ -151,12 +151,32 @@ const AdminDashboard: React.FC = () => {
   const runBulkUpdate = async (nextStatus: JobStatus) => {
     if (selectedVisibleIds.length === 0) return;
     setBulkUpdating(true);
+    setError(null);
+    const targetIds = [...selectedVisibleIds];
     try {
-      await Promise.all(selectedVisibleIds.map((id) => updateJobStatus(id, nextStatus)));
-      setJobs((prev) => prev.map((job) => (selectedVisibleIds.includes(job.id) ? { ...job, status: nextStatus } : job)));
-      setSelectedIds(new Set());
+      const results = await Promise.allSettled(targetIds.map(async (id) => {
+        await updateJobStatus(id, nextStatus);
+        return id;
+      }));
+
+      const succeededIds = results
+        .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+        .map((result) => result.value);
+      const failedIds = targetIds.filter((id) => !succeededIds.includes(id));
+
+      if (succeededIds.length > 0) {
+        setJobs((prev) => prev.map((job) => (succeededIds.includes(job.id) ? { ...job, status: nextStatus } : job)));
+      }
+
+      if (failedIds.length > 0) {
+        setSelectedIds(new Set(failedIds));
+        await fetchJobs();
+        setError(`Bulk action completed with partial failures: ${succeededIds.length} succeeded, ${failedIds.length} failed.`);
+      } else {
+        setSelectedIds(new Set());
+      }
     } catch {
-      setError('Bulk action failed. Please retry.');
+      setError('Bulk action failed unexpectedly. Please retry.');
     } finally {
       setBulkUpdating(false);
     }

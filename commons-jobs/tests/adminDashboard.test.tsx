@@ -129,4 +129,26 @@ describe('AdminDashboard', () => {
       expect(updateJobStatusMock).toHaveBeenCalledWith('agg-1', 'active');
     });
   });
+
+  it('reports partial failures during bulk actions and keeps failed rows selected', async () => {
+    updateJobStatusMock.mockImplementation((id: string) =>
+      id === 'agg-2' ? Promise.reject(new Error('failed')) : Promise.resolve(undefined)
+    );
+
+    render(<AdminDashboard />);
+
+    await screen.findByText('Role One');
+    fireEvent.click(screen.getByLabelText('Select Role One'));
+    fireEvent.click(screen.getByLabelText('Select Role Two'));
+
+    const bulkArchive = await screen.findByRole('button', { name: /bulk archive/i });
+    fireEvent.click(bulkArchive);
+
+    await waitFor(() => {
+      expect(screen.getByText(/partial failures/i)).toBeTruthy();
+    });
+    expect(screen.getByText(/1 succeeded, 1 failed/i)).toBeTruthy();
+    expect(updateJobStatusMock).toHaveBeenCalledWith('agg-1', 'archived');
+    expect(updateJobStatusMock).toHaveBeenCalledWith('agg-2', 'archived');
+  });
 });

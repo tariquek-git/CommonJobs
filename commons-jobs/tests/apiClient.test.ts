@@ -64,4 +64,21 @@ describe('apiClient', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('does not send JSON content-type when no body is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true })
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await requestJson('/jobs/job-1/click', {
+      method: 'POST'
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Headers;
+    expect(headers.has('Content-Type')).toBe(false);
+  });
 });

@@ -103,7 +103,7 @@ const App: React.FC = () => {
     if (selectedJob) params.set('jobId', selectedJob.id);
     if (feedType === 'aggregated') params.set('feed', 'aggregated');
     
-    // Use replaceState for filters, pushState for modal to support back button
+    // Keep URL state in sync without growing browser history on each UI state change.
     const url = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
     window.history.replaceState({}, '', url);
 
@@ -254,19 +254,21 @@ const App: React.FC = () => {
             setSearchUsedFallback(Boolean(parsedResponse?.fallback));
 	            const normalized = normalizeParsedSearchFilters(parsedResponse?.result ?? null);
 	            if (normalized) {
+                const nextKeyword = normalized.keyword || '';
+                setSearchQuery(nextKeyword);
 	                setFilters(prev => ({
-	                    ...prev,
-                    keyword: normalized.keyword || '',
-                    remotePolicies: normalized.remotePolicies,
-                    employmentTypes: normalized.employmentTypes,
-                    seniorityLevels: normalized.seniorityLevels,
-                    dateRange: normalized.dateRange || 'all',
-                    page: 1
-                }));
-            }
-        } finally {
-            setIsProcessingAI(false);
-        }
+		                  ...prev,
+	                  keyword: nextKeyword,
+	                  remotePolicies: normalized.remotePolicies,
+	                  employmentTypes: normalized.employmentTypes,
+	                  seniorityLevels: normalized.seniorityLevels,
+	                  dateRange: normalized.dateRange || 'all',
+	                  page: 1
+	                }));
+	            }
+	        } finally {
+	            setIsProcessingAI(false);
+	        }
     }
   };
 
@@ -635,12 +637,6 @@ const App: React.FC = () => {
             job={selectedJob} 
             onClose={() => {
               setSelectedJob(null);
-              // Clean up URL parameter on close
-              const params = new URLSearchParams(window.location.search);
-              params.delete('jobId');
-              const url = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
-              window.history.pushState({}, '', url);
-              document.title = 'Commons Jobs | Fintech Commons';
               setTimeout(() => lastActiveElementRef.current?.focus(), 0);
             }} 
           />

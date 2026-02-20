@@ -65,15 +65,19 @@ export const requestJson = async <T>(path: string, options: ApiRequestOptions = 
 
   for (let attempt = 0; ; attempt += 1) {
     try {
+      const headers = new Headers(options.headers || {});
+      if (options.token) {
+        headers.set('Authorization', `Bearer ${options.token}`);
+      }
+      if (options.body !== undefined && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+
       const response = await fetch(`${API_BASE_URL}${path}`, {
         method,
         signal: options.signal,
         keepalive: options.keepalive,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-          ...(options.headers || {})
-        },
+        headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
       });
 

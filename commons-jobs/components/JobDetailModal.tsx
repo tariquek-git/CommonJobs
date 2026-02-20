@@ -16,6 +16,20 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
   const [imgError, setImgError] = useState(false);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const getFocusableElements = (): HTMLElement[] => {
+    if (!dialogRef.current) return [] as HTMLElement[];
+    const selectors = [
+      'a[href]',
+      'button:not([disabled])',
+      'textarea:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(',');
+    return Array.from(dialogRef.current.querySelectorAll(selectors)) as HTMLElement[];
+  };
 
   useEffect(() => {
     // Prevent background scrolling when modal is open
@@ -25,6 +39,30 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        const focusable = getFocusableElements();
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const activeElement = document.activeElement as HTMLElement | null;
+        const activeInsideDialog = activeElement ? dialogRef.current?.contains(activeElement) : false;
+
+        if (event.shiftKey) {
+          if (!activeInsideDialog || activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          }
+          return;
+        }
+
+        if (!activeInsideDialog || activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -56,6 +94,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
 
       {/* Modal Content */}
       <div
+        ref={dialogRef}
         className="relative w-full max-w-2xl bg-white rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] animate-slide-up overflow-hidden"
         role="dialog"
         aria-modal="true"

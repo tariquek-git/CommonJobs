@@ -50,4 +50,18 @@ describe('JobDetailModal accessibility', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('traps keyboard focus within the dialog', () => {
+    render(<JobDetailModal job={baseJob} onClose={() => {}} />);
+
+    const closeButton = screen.getByRole('button', { name: 'Close job details' });
+    const applyButton = screen.getByRole('button', { name: /apply on company site/i });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(applyButton);
+
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+  });
 });
