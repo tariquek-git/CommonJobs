@@ -29,6 +29,7 @@ const envSchema = z.object({
   SUPABASE_JOBS_TABLE: z.string().trim().min(1).default('job_board_jobs'),
   SUPABASE_CLICKS_TABLE: z.string().trim().min(1).default('job_board_clicks'),
   CLIENT_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3010,http://localhost:5173'),
+  ADMIN_COOKIE_NAME: z.string().trim().min(1).default('commons_jobs_admin'),
   ADMIN_USERNAME: z.string().trim().min(3).optional(),
   ADMIN_PASSWORD_HASH: z.string().trim().optional(),
   ADMIN_TOKEN_SECRET: z.string().optional(),

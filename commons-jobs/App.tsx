@@ -4,7 +4,7 @@ import Header from './components/Header';
 import JobFilters from './components/JobFilters';
 import JobCard from './components/JobCard';
 import { JobFilterState, JobPosting, JobSearchFacets, JobSortOption } from './types';
-import { getJobs, getJobById, adminLogin, adminLogout, hasAdminSession } from './services/jobService';
+import { getJobs, getJobById, adminLogin, adminLogout, refreshAdminSession } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
@@ -49,6 +49,8 @@ const App: React.FC = () => {
   // Modal State
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const adminModalRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // AI Search States
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +72,11 @@ const App: React.FC = () => {
 
   // URL Sync
   useEffect(() => {
-    setIsAdmin(hasAdminSession());
+    let active = true;
+    void (async () => {
+      const authenticated = await refreshAdminSession();
+      if (active) setIsAdmin(authenticated);
+    })();
 
     // 1. Parse URL params on mount
     const params = new URLSearchParams(window.location.search);
@@ -94,6 +100,9 @@ const App: React.FC = () => {
           if (job) setSelectedJob(job);
         })();
     }
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Update URL when filters/job/feed changes
@@ -174,14 +183,46 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!showAdminLogin) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
         setShowAdminLogin(false);
+        return;
+      }
+      if (event.key !== 'Tab' || !adminModalRef.current) return;
+
+      const focusable = Array.from(
+        adminModalRef.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      );
+      const focusableElements = focusable.filter(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement &&
+          !element.hasAttribute('disabled') &&
+          !element.getAttribute('aria-hidden')
+      );
+
+      if (focusableElements.length === 0) return;
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (!active || active === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
   }, [showAdminLogin]);
 
   useEffect(() => {
@@ -272,29 +313,29 @@ const App: React.FC = () => {
     }
   };
 
-	  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
-	    e.preventDefault();
-	    setLoginError('');
-	    try {
-	        const success = await adminLogin(adminUsername, adminPassword);
-	        if (success) {
-	            setIsAdmin(true);
-	            setShowAdminLogin(false);
-	            setCurrentView('admin');
-	            setAdminPassword('');
-	        } else {
-	            setLoginError('Invalid credentials');
-	        }
-	    } catch {
-	      setLoginError('Login failed');
-	    }
-	  };
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const success = await adminLogin(adminUsername, adminPassword);
+      if (success) {
+        setIsAdmin(true);
+        setShowAdminLogin(false);
+        setCurrentView('admin');
+        setAdminPassword('');
+      } else {
+        setLoginError('Invalid credentials');
+      }
+    } catch {
+      setLoginError('Login failed');
+    }
+  };
 
-	  const handleAdminLogout = () => {
-	    adminLogout();
-	    setIsAdmin(false);
-	    setCurrentView('browse');
-	  };
+  const handleAdminLogout = async () => {
+    await adminLogout();
+    setIsAdmin(false);
+    setCurrentView('browse');
+  };
 
   const renderContent = () => {
     if (currentView === 'admin' && isAdmin) {
@@ -376,7 +417,7 @@ const App: React.FC = () => {
 	                              </button>
 	                              <button
 	                                type="button"
-	                                onClick={handleAdminLogout}
+	                                onClick={() => void handleAdminLogout()}
 	                                className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
 	                              >
 	                                Logout
@@ -647,6 +688,7 @@ const App: React.FC = () => {
       {showAdminLogin && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4" onClick={() => setShowAdminLogin(false)}>
             <div
+                ref={adminModalRef}
                 className="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm"
                 role="dialog"
                 aria-modal="true"

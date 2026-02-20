@@ -52,6 +52,8 @@ export interface JobPosting {
   // Submitter Info (Private/Admin only)
   submitterName?: string;
   submitterEmail?: string;
+  moderationNote?: string;
+  moderatedAt?: string;
   
   // Analytics
   clicks: number;

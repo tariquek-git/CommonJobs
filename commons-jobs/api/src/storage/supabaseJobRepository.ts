@@ -65,6 +65,8 @@ const fromRow = (row: SupabaseJobRow): JobPosting => {
     tags: asStringArray(payload.tags),
     submitterName: asOptionalString(payload.submitterName),
     submitterEmail: asOptionalString(payload.submitterEmail),
+    moderationNote: asOptionalString(payload.moderationNote),
+    moderatedAt: asOptionalString(payload.moderatedAt),
     clicks: typeof payload.clicks === 'number' && Number.isFinite(payload.clicks) ? payload.clicks : 0
   };
 };

@@ -40,6 +40,13 @@ const buildTestEnv = (overrides: Record<string, string> = {}) =>
     ...overrides
   });
 
+const getSessionCookie = (headers: Record<string, unknown>): string => {
+  const setCookieHeader = headers['set-cookie'];
+  const raw = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
+  expect(typeof raw).toBe('string');
+  return String(raw).split(';')[0];
+};
+
 describe('API integration', () => {
   beforeAll(async () => {
     adminPasswordHash = await hashAdminPassword('Tark101', 4);
@@ -77,13 +84,13 @@ describe('API integration', () => {
       payload: { username: 'admin', password: 'Tark101' }
     });
     expect(loginRes.statusCode).toBe(200);
-    const token = (loginRes.json() as { token: string }).token;
-    expect(token).toBeTruthy();
+    expect((loginRes.json() as { ok: boolean }).ok).toBe(true);
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
 
     const approveRes = await app.inject({
       method: 'PATCH',
       url: `/admin/jobs/${submitBody.jobId}/status`,
-      headers: { authorization: `Bearer ${token}` },
+      headers: { cookie: sessionCookie },
       payload: { status: 'active' }
     });
     expect(approveRes.statusCode).toBe(200);
@@ -105,8 +112,30 @@ describe('API integration', () => {
     });
 
     expect(listRes.statusCode).toBe(200);
-    const listBody = listRes.json() as { jobs: Array<{ id: string }> };
-    expect(listBody.jobs.some((job) => job.id === submitBody.jobId)).toBe(true);
+    const listBody = listRes.json() as { jobs: Array<Record<string, unknown>> };
+    const listedJob = listBody.jobs.find((job) => job.id === submitBody.jobId);
+    expect(Boolean(listedJob)).toBe(true);
+    expect(listedJob && 'submitterName' in listedJob).toBe(false);
+    expect(listedJob && 'submitterEmail' in listedJob).toBe(false);
+
+    const publicDetailRes = await app.inject({
+      method: 'GET',
+      url: `/jobs/${submitBody.jobId}`
+    });
+    expect(publicDetailRes.statusCode).toBe(200);
+    const publicDetailJob = (publicDetailRes.json() as { job: Record<string, unknown> }).job;
+    expect('submitterName' in publicDetailJob).toBe(false);
+    expect('submitterEmail' in publicDetailJob).toBe(false);
+
+    const adminDetailRes = await app.inject({
+      method: 'GET',
+      url: `/jobs/${submitBody.jobId}`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(adminDetailRes.statusCode).toBe(200);
+    const adminDetailJob = (adminDetailRes.json() as { job: Record<string, unknown> }).job;
+    expect(adminDetailJob.submitterName).toBe('Admin');
+    expect(adminDetailJob.submitterEmail).toBe('admin@example.com');
 
     const clickRes = await app.inject({
       method: 'POST',
@@ -287,7 +316,7 @@ describe('API integration', () => {
     await app.close();
   });
 
-  it('rejects admin endpoints without token', async () => {
+  it('rejects admin endpoints without an authenticated session', async () => {
     const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({ method: 'GET', url: '/admin/jobs' });
     expect(res.statusCode).toBe(401);
@@ -303,13 +332,13 @@ describe('API integration', () => {
       payload: { username: 'admin', password: 'Tark101' }
     });
     expect(loginRes.statusCode).toBe(200);
-    const token = (loginRes.json() as { token: string }).token;
-    expect(token).toBeTruthy();
+    expect((loginRes.json() as { ok: boolean }).ok).toBe(true);
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
 
     const res = await app.inject({
       method: 'GET',
       url: '/admin/runtime',
-      headers: { authorization: `Bearer ${token}` }
+      headers: { cookie: sessionCookie }
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { ok: boolean; provider: string };
@@ -345,12 +374,12 @@ describe('API integration', () => {
       payload: { username: 'admin', password: 'Tark101' }
     });
     expect(loginRes.statusCode).toBe(200);
-    const token = (loginRes.json() as { token: string }).token;
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
 
     const patchRes = await app.inject({
       method: 'PATCH',
       url: '/admin/jobs/job-1',
-      headers: { authorization: `Bearer ${token}` },
+      headers: { cookie: sessionCookie },
       payload: {
         roleTitle: 'Senior Analyst'
       }
@@ -373,6 +402,46 @@ describe('API integration', () => {
     });
 
     expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('sets and clears admin session cookies via login/logout endpoints', async () => {
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    expect(loginRes.statusCode).toBe(200);
+    const loginCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
+    expect(loginCookie.startsWith('commons_jobs_admin=')).toBe(true);
+
+    const sessionRes = await app.inject({
+      method: 'GET',
+      url: '/auth/admin-session',
+      headers: { cookie: loginCookie }
+    });
+    expect(sessionRes.statusCode).toBe(200);
+    expect((sessionRes.json() as { authenticated: boolean }).authenticated).toBe(true);
+
+    const logoutRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-logout',
+      headers: { cookie: loginCookie }
+    });
+    expect(logoutRes.statusCode).toBe(200);
+    const clearedCookie = getSessionCookie(logoutRes.headers as Record<string, unknown>);
+    expect(clearedCookie).toBe('commons_jobs_admin=');
+
+    const sessionAfterLogoutRes = await app.inject({
+      method: 'GET',
+      url: '/auth/admin-session',
+      headers: { cookie: clearedCookie }
+    });
+    expect(sessionAfterLogoutRes.statusCode).toBe(200);
+    expect((sessionAfterLogoutRes.json() as { authenticated: boolean }).authenticated).toBe(false);
+
     await app.close();
   });
 
@@ -399,6 +468,62 @@ describe('API integration', () => {
       payload: { username: 'admin', password: 'wrong-password' }
     });
     expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('stores moderation note and moderation timestamp on admin status updates', async () => {
+    const now = new Date().toISOString();
+    const app = buildApp(
+      new InMemoryJobRepository([
+        {
+          id: 'job-moderation-1',
+          companyName: 'Acme',
+          companyWebsite: 'https://acme.example',
+          roleTitle: 'Compliance Analyst',
+          externalLink: 'https://acme.example/jobs/1',
+          postedDate: now,
+          status: 'pending',
+          sourceType: 'Direct',
+          isVerified: true,
+          clicks: 0
+        }
+      ]),
+      new InMemoryClickRepository(),
+      buildTestEnv()
+    );
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
+
+    const updateRes = await app.inject({
+      method: 'PATCH',
+      url: '/admin/jobs/job-moderation-1/status',
+      headers: { cookie: sessionCookie },
+      payload: {
+        status: 'rejected',
+        moderationNote: 'Missing required compensation details'
+      }
+    });
+    expect(updateRes.statusCode).toBe(200);
+    const updatedJob = (updateRes.json() as { job: JobPosting }).job;
+    expect(updatedJob.status).toBe('rejected');
+    expect(updatedJob.moderationNote).toBe('Missing required compensation details');
+    expect(typeof updatedJob.moderatedAt).toBe('string');
+
+    const adminListRes = await app.inject({
+      method: 'GET',
+      url: '/admin/jobs',
+      headers: { cookie: sessionCookie }
+    });
+    expect(adminListRes.statusCode).toBe(200);
+    const listed = (adminListRes.json() as { jobs: JobPosting[] }).jobs.find((job) => job.id === 'job-moderation-1');
+    expect(listed?.moderationNote).toBe('Missing required compensation details');
+    expect(typeof listed?.moderatedAt).toBe('string');
 
     await app.close();
   });
@@ -663,13 +788,13 @@ describe('API integration', () => {
       url: '/auth/admin-login',
       payload: { username: 'admin', password: 'Tark101' }
     });
-    const token = (loginRes.json() as { token: string }).token;
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
     expect(loginRes.statusCode).toBe(200);
 
     const adminList = await app.inject({
       method: 'GET',
       url: '/admin/jobs',
-      headers: { authorization: `Bearer ${token}` }
+      headers: { cookie: sessionCookie }
     });
     expect(adminList.statusCode).toBe(200);
     const body = adminList.json() as { jobs: Array<{ clicks: number }> };

@@ -74,6 +74,8 @@ const baseJobSchema = z.object({
   tags: z.array(z.string()).max(10).optional(),
   submitterName: z.string().max(120).optional(),
   submitterEmail: z.string().email().max(200).optional(),
+  moderationNote: z.string().max(500).optional(),
+  moderatedAt: z.string().datetime().optional(),
   website: z.string().optional() // honeypot
 });
 
@@ -107,7 +109,13 @@ export const adminCreateJobSchema = baseJobSchema.extend({
 export const adminUpdateJobSchema = baseJobSchema.partial();
 
 export const adminStatusSchema = z.object({
-  status: statusSchema
+  status: statusSchema,
+  moderationNote: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((value) => (value === '' ? undefined : value))
 });
 
 export const searchSchema = z.object({
@@ -158,6 +166,8 @@ export const normalizeIncomingJob = (input: Record<string, unknown>) => {
     tags: sanitizeTags(input.tags),
     submitterName: cleanString(input.submitterName, 120),
     submitterEmail: cleanString(input.submitterEmail, 200),
+    moderationNote: cleanString(input.moderationNote, 500),
+    moderatedAt: cleanString(input.moderatedAt, 40),
     website: cleanString(input.website, 120)
   };
 };
@@ -185,6 +195,8 @@ export const ensurePublicJob = (input: ReturnType<typeof normalizeIncomingJob>):
     currency: input.currency,
     tags: input.tags,
     submitterName: input.submitterName,
-    submitterEmail: input.submitterEmail
+    submitterEmail: input.submitterEmail,
+    moderationNote: input.moderationNote,
+    moderatedAt: input.moderatedAt
   };
 };

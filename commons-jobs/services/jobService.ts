@@ -1,7 +1,6 @@
 import { JobPosting, JobFilterState, JobSearchFacets, JobStatus } from '../types';
 import { requestJson, requestVoid } from './apiClient';
 
-const ADMIN_TOKEN_KEY = 'commons_jobs_admin_token';
 const JOB_SEARCH_CACHE_TTL_MS = 15_000;
 
 type FeedType = 'direct' | 'aggregated';
@@ -15,23 +14,13 @@ type JobsSearchResponse = {
 };
 type CacheEntry = { at: number; response: JobsSearchResponse };
 
-const getToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
-const setToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
-const clearToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
 const jobSearchCache = new Map<string, CacheEntry>();
+let adminSessionActive = false;
 
 const buildJobsCacheKey = (filters: JobFilterState, feedType: FeedType): string =>
   JSON.stringify({ filters, feedType });
 
-const getAdminToken = (): string => {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Admin session expired. Please log in again.');
-  }
-  return token;
-};
-
-export const hasAdminSession = (): boolean => Boolean(getToken());
+export const hasAdminSession = (): boolean => adminSessionActive;
 
 export const getJobById = async (id: string): Promise<JobPosting | undefined> => {
   try {
@@ -93,6 +82,10 @@ export const __clearJobSearchCacheForTests = (): void => {
   jobSearchCache.clear();
 };
 
+export const __resetAdminSessionForTests = (): void => {
+  adminSessionActive = false;
+};
+
 type NewJobPayload =
   Omit<JobPosting, 'id' | 'postedDate' | 'status' | 'clicks'> &
   Partial<Pick<JobPosting, 'postedDate' | 'status' | 'clicks'>>;
@@ -113,7 +106,7 @@ export const submitJob = async (jobData: NewJobPayload): Promise<string> => {
 export const createAdminJob = async (jobData: NewJobPayload): Promise<JobPosting> => {
   const data = await requestJson<{ job: JobPosting }>('/admin/jobs', {
     method: 'POST',
-    token: getAdminToken(),
+    credentials: 'include',
     body: jobData
   });
 
@@ -131,28 +124,52 @@ export const trackClick = (id: string) => {
 
 export const adminLogin = async (username: string, password: string): Promise<boolean> => {
   try {
-    const data = await requestJson<{ token: string }>('/auth/admin-login', {
+    const data = await requestJson<{ ok?: boolean }>('/auth/admin-login', {
       method: 'POST',
+      credentials: 'include',
       body: { username, password }
     });
 
-    if (!data.token) return false;
-    setToken(data.token);
-    return true;
+    adminSessionActive = Boolean(data.ok);
+    return adminSessionActive;
   } catch {
-    clearToken();
+    adminSessionActive = false;
     return false;
   }
 };
 
-export const adminLogout = () => {
-  clearToken();
+export const refreshAdminSession = async (): Promise<boolean> => {
+  try {
+    const data = await requestJson<{ authenticated?: boolean }>('/auth/admin-session', {
+      method: 'GET',
+      credentials: 'include',
+      retry: 1
+    });
+    adminSessionActive = Boolean(data.authenticated);
+    return adminSessionActive;
+  } catch {
+    adminSessionActive = false;
+    return false;
+  }
+};
+
+export const adminLogout = async (): Promise<void> => {
+  try {
+    await requestVoid('/auth/admin-logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+  } catch {
+    // Best-effort logout: clear client session state even if the network call fails.
+  } finally {
+    adminSessionActive = false;
+  }
 };
 
 export const getAdminJobs = async (): Promise<JobPosting[]> => {
   const data = await requestJson<{ jobs: JobPosting[] }>('/admin/jobs', {
     method: 'GET',
-    token: getAdminToken(),
+    credentials: 'include',
     retry: 1
   });
 
@@ -176,16 +193,16 @@ export type AdminRuntimeInfo = {
 export const getAdminRuntime = async (): Promise<AdminRuntimeInfo> => {
   return requestJson<AdminRuntimeInfo>('/admin/runtime', {
     method: 'GET',
-    token: getAdminToken(),
+    credentials: 'include',
     retry: 1
   });
 };
 
-export const updateJobStatus = async (id: string, status: JobStatus): Promise<void> => {
+export const updateJobStatus = async (id: string, status: JobStatus, moderationNote?: string): Promise<void> => {
   await requestJson(`/admin/jobs/${id}/status`, {
     method: 'PATCH',
-    token: getAdminToken(),
-    body: { status }
+    credentials: 'include',
+    body: { status, moderationNote }
   });
   jobSearchCache.clear();
 };
@@ -193,7 +210,7 @@ export const updateJobStatus = async (id: string, status: JobStatus): Promise<vo
 export const updateJob = async (updatedJob: JobPosting): Promise<void> => {
   await requestJson(`/admin/jobs/${updatedJob.id}`, {
     method: 'PATCH',
-    token: getAdminToken(),
+    credentials: 'include',
     body: updatedJob
   });
   jobSearchCache.clear();

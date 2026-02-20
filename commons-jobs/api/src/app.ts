@@ -21,6 +21,56 @@ import { JobRepository } from './storage/jobRepository.js';
 import { createAiService, heuristicAnalyzeJobDescription, heuristicParseSearchQuery } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
+const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+const firstHeaderValue = (value: string | string[] | undefined): string | undefined => {
+  if (Array.isArray(value)) return value[0];
+  return value;
+};
+
+const parseCookieHeader = (cookieHeader: string | undefined): Record<string, string> => {
+  if (!cookieHeader) return {};
+
+  const parsed: Record<string, string> = {};
+  for (const pair of cookieHeader.split(';')) {
+    const trimmed = pair.trim();
+    if (!trimmed) continue;
+    const separator = trimmed.indexOf('=');
+    if (separator <= 0) continue;
+
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1).trim();
+    if (!key) continue;
+    parsed[key] = value;
+  }
+  return parsed;
+};
+
+const serializeAdminSessionCookie = (cookieName: string, token: string, secure: boolean): string => {
+  const parts = [
+    `${cookieName}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Max-Age=${Math.floor(ADMIN_SESSION_TTL_MS / 1000)}`,
+    'HttpOnly',
+    'SameSite=Lax'
+  ];
+  if (secure) parts.push('Secure');
+  return parts.join('; ');
+};
+
+const serializeExpiredAdminSessionCookie = (cookieName: string, secure: boolean): string => {
+  const parts = [
+    `${cookieName}=`,
+    'Path=/',
+    'Max-Age=0',
+    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    'HttpOnly',
+    'SameSite=Lax'
+  ];
+  if (secure) parts.push('Secure');
+  return parts.join('; ');
+};
+
 export const buildApp = (
   repository: JobRepository,
   clickRepository: ClickRepository,
@@ -37,6 +87,7 @@ export const buildApp = (
   const clickDedupe = new Map<string, number>();
 
   app.register(cors, {
+    credentials: true,
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
@@ -60,11 +111,39 @@ export const buildApp = (
     });
   });
 
-  const adminGuard = (authorization?: string) => {
+  const adminGuard = (request: { headers: { authorization?: string | string[]; cookie?: string | string[] } }) => {
     if (!appEnv.ADMIN_TOKEN_SECRET) return false;
-    if (!authorization || !authorization.startsWith('Bearer ')) return false;
-    const token = authorization.slice('Bearer '.length);
+    const authorization = firstHeaderValue(request.headers.authorization);
+    let token: string | undefined;
+
+    if (authorization?.startsWith('Bearer ')) {
+      token = authorization.slice('Bearer '.length);
+    } else {
+      const cookieHeader = firstHeaderValue(request.headers.cookie);
+      const cookies = parseCookieHeader(cookieHeader);
+      const rawCookie = cookies[appEnv.ADMIN_COOKIE_NAME];
+      if (rawCookie) {
+        try {
+          token = decodeURIComponent(rawCookie);
+        } catch {
+          token = rawCookie;
+        }
+      }
+    }
+
+    if (!token) return false;
     return verifyAdminToken(token, appEnv.ADMIN_TOKEN_SECRET);
+  };
+
+  const toPublicJob = (job: JobPosting): JobPosting => {
+    const {
+      submitterName: _submitterName,
+      submitterEmail: _submitterEmail,
+      moderationNote: _moderationNote,
+      moderatedAt: _moderatedAt,
+      ...rest
+    } = job;
+    return rest;
   };
 
   const hydrateClicks = async (jobs: JobPosting[]): Promise<JobPosting[]> => {
@@ -128,7 +207,23 @@ export const buildApp = (
     const validPassword = await verifyAdminPassword(body.password, appEnv.ADMIN_PASSWORD_HASH);
     if (!validPassword) return unauthorized(reply, 'Invalid credentials');
 
-    return { token: createAdminToken(appEnv.ADMIN_TOKEN_SECRET) };
+    const secureCookie = appEnv.NODE_ENV === 'production';
+    const token = createAdminToken(appEnv.ADMIN_TOKEN_SECRET, ADMIN_SESSION_TTL_MS);
+    reply.header('Set-Cookie', serializeAdminSessionCookie(appEnv.ADMIN_COOKIE_NAME, token, secureCookie));
+    reply.header('Cache-Control', 'no-store');
+    return { ok: true, authenticated: true };
+  });
+
+  app.get('/auth/admin-session', async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return { authenticated: adminGuard(request) };
+  });
+
+  app.post('/auth/admin-logout', async (_request, reply) => {
+    const secureCookie = appEnv.NODE_ENV === 'production';
+    reply.header('Set-Cookie', serializeExpiredAdminSessionCookie(appEnv.ADMIN_COOKIE_NAME, secureCookie));
+    reply.header('Cache-Control', 'no-store');
+    return { ok: true };
   });
 
   app.post('/jobs/search', async (request, reply) => {
@@ -152,7 +247,7 @@ export const buildApp = (
     const companyCapApplied = parsed.data.feedType === 'aggregated' && visibleJobs.length < hydrated.length;
 
     return {
-      jobs: pagedJobs,
+      jobs: pagedJobs.map(toPublicJob),
       total,
       page,
       pageSize,
@@ -169,7 +264,7 @@ export const buildApp = (
     const job = jobs.find((j) => j.id === params.id);
     if (!job) return notFound(reply, 'Job not found');
 
-    const isAdmin = adminGuard(request.headers.authorization);
+    const isAdmin = adminGuard(request);
     if (!isAdmin && job.status !== 'active') return notFound(reply, 'Job not found');
     let clicks = job.clicks ?? 0;
     try {
@@ -177,7 +272,8 @@ export const buildApp = (
     } catch (error) {
       app.log.warn({ err: error, jobId: job.id }, 'Click repository unavailable for job detail; defaulting to cached count');
     }
-    return { job: { ...job, clicks } };
+    const hydratedJob = { ...job, clicks };
+    return { job: isAdmin ? hydratedJob : toPublicJob(hydratedJob) };
   });
 
   app.post('/jobs/:id/click', async (request, reply) => {
@@ -240,7 +336,7 @@ export const buildApp = (
   });
 
   app.get('/admin/jobs', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuard(request)) {
       return unauthorized(reply);
     }
 
@@ -251,7 +347,7 @@ export const buildApp = (
   });
 
   app.get('/admin/runtime', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuard(request)) {
       return unauthorized(reply);
     }
 
@@ -301,7 +397,7 @@ export const buildApp = (
   });
 
   app.post('/admin/jobs', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuard(request)) {
       return unauthorized(reply);
     }
 
@@ -337,6 +433,8 @@ export const buildApp = (
         tags: parsed.data.tags,
         submitterName: parsed.data.submitterName,
         submitterEmail: parsed.data.submitterEmail,
+        moderationNote: parsed.data.moderationNote,
+        moderatedAt: parsed.data.moderatedAt,
         clicks: 0
       };
 
@@ -348,7 +446,7 @@ export const buildApp = (
   });
 
   app.patch('/admin/jobs/:id/status', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuard(request)) {
       return unauthorized(reply);
     }
 
@@ -360,7 +458,12 @@ export const buildApp = (
       const idx = jobs.findIndex((job) => job.id === params.id);
       if (idx < 0) return null;
 
-      jobs[idx] = { ...jobs[idx], status: parsed.data.status };
+      jobs[idx] = {
+        ...jobs[idx],
+        status: parsed.data.status,
+        moderationNote: parsed.data.moderationNote ?? jobs[idx].moderationNote,
+        moderatedAt: new Date().toISOString()
+      };
       return jobs[idx];
     });
 
@@ -369,7 +472,7 @@ export const buildApp = (
   });
 
   app.patch('/admin/jobs/:id', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuard(request)) {
       return unauthorized(reply);
     }
 

@@ -20,7 +20,6 @@ const AdminDashboard: React.FC = () => {
   const [isCreatingJob, setIsCreatingJob] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
-  const [moderationNotes, setModerationNotes] = useState<Record<string, string>>({});
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : null;
 
   const fetchJobs = async () => {
@@ -53,24 +52,23 @@ const AdminDashboard: React.FC = () => {
     void loadRuntime();
   }, []);
 
-  const recordModerationNote = (id: string, status: JobStatus, roleTitle: string) => {
+  const recordModerationNote = (status: JobStatus, roleTitle: string): string | undefined => {
     if (status !== 'rejected' && status !== 'archived') return;
     const note = window.prompt(`Optional moderation note for ${roleTitle}:`, '')?.trim() || '';
-    if (!note) return;
-    setModerationNotes((prev) => ({ ...prev, [id]: note }));
-    console.info('[moderation-note]', { id, status, note });
+    return note || undefined;
   };
 
   const handleStatusUpdate = async (id: string, status: JobStatus) => {
     const previous = jobs;
     const target = jobs.find((job) => job.id === id);
-    if (target) {
-      recordModerationNote(id, status, target.roleTitle);
-    }
+    const moderationNote = target ? recordModerationNote(status, target.roleTitle) : undefined;
+    const moderatedAt = new Date().toISOString();
 
-    setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, status } : job)));
+    setJobs((prev) =>
+      prev.map((job) => (job.id === id ? { ...job, status, moderationNote: moderationNote ?? job.moderationNote, moderatedAt } : job))
+    );
     try {
-      await updateJobStatus(id, status);
+      await updateJobStatus(id, status, moderationNote);
     } catch {
       setJobs(previous);
       setError('Status update failed. Please retry.');
@@ -79,10 +77,17 @@ const AdminDashboard: React.FC = () => {
 
   const handleArchive = async (id: string, roleTitle: string) => {
     if (!window.confirm('Archive this job? It will not be deleted from DB.')) return;
-    recordModerationNote(id, 'archived', roleTitle);
+    const moderationNote = recordModerationNote('archived', roleTitle);
+    const moderatedAt = new Date().toISOString();
     try {
-      await updateJobStatus(id, 'archived');
-      setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, status: 'archived' } : job)));
+      await updateJobStatus(id, 'archived', moderationNote);
+      setJobs((prev) =>
+        prev.map((job) =>
+          job.id === id
+            ? { ...job, status: 'archived', moderationNote: moderationNote ?? job.moderationNote, moderatedAt }
+            : job
+        )
+      );
     } catch {
       setError('Archive failed. Please retry.');
     }
@@ -468,7 +473,7 @@ const AdminDashboard: React.FC = () => {
                   <td className="px-6 py-3 max-w-xs">
                     <div className="font-bold text-gray-900">{job.roleTitle}</div>
                     <div className="text-gray-500 text-xs">{job.companyName}</div>
-                    {moderationNotes[job.id] && <div className="text-[11px] text-amber-700 mt-1">Note: {moderationNotes[job.id]}</div>}
+                    {job.moderationNote && <div className="text-[11px] text-amber-700 mt-1">Note: {job.moderationNote}</div>}
                   </td>
                   <td className="px-6 py-3">
                     <span

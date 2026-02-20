@@ -29,6 +29,8 @@ export interface JobPosting {
   tags?: string[];
   submitterName?: string;
   submitterEmail?: string;
+  moderationNote?: string;
+  moderatedAt?: string;
   clicks: number;
 }
 

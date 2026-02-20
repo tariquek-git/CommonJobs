@@ -1,48 +1,63 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { __clearJobSearchCacheForTests, adminLogin, getJobs, hasAdminSession } from '../services/jobService';
-
-class LocalStorageMock {
-  private readonly store = new Map<string, string>();
-
-  getItem(key: string) {
-    return this.store.has(key) ? this.store.get(key)! : null;
-  }
-
-  setItem(key: string, value: string) {
-    this.store.set(key, value);
-  }
-
-  removeItem(key: string) {
-    this.store.delete(key);
-  }
-
-  clear() {
-    this.store.clear();
-  }
-}
+import {
+  __clearJobSearchCacheForTests,
+  __resetAdminSessionForTests,
+  adminLogin,
+  adminLogout,
+  getJobs,
+  hasAdminSession,
+  refreshAdminSession
+} from '../services/jobService';
 
 beforeEach(() => {
   vi.restoreAllMocks();
   __clearJobSearchCacheForTests();
-  Object.defineProperty(globalThis, 'localStorage', {
-    value: new LocalStorageMock(),
-    configurable: true
-  });
+  __resetAdminSessionForTests();
 });
 
 describe('jobService', () => {
-  it('stores admin token on successful login', async () => {
+  it('marks admin session active on successful login', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ token: 'abc123' })
+        json: async () => ({ ok: true })
       })
     );
 
     const ok = await adminLogin('admin', 'password');
     expect(ok).toBe(true);
     expect(hasAdminSession()).toBe(true);
+  });
+
+  it('refreshes admin session from the server cookie check endpoint', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ authenticated: true })
+      })
+    );
+
+    const ok = await refreshAdminSession();
+    expect(ok).toBe(true);
+    expect(hasAdminSession()).toBe(true);
+  });
+
+  it('clears admin session on logout even if logout request fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true })
+      })
+      .mockRejectedValueOnce(new Error('network'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await adminLogin('admin', 'password');
+    expect(hasAdminSession()).toBe(true);
+    await adminLogout();
+    expect(hasAdminSession()).toBe(false);
   });
 
   it('returns jobs from search endpoint', async () => {

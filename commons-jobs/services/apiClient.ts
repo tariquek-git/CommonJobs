@@ -20,6 +20,7 @@ type ApiRequestOptions = {
   headers?: HeadersInit;
   signal?: AbortSignal;
   token?: string;
+  credentials?: RequestCredentials;
   keepalive?: boolean;
   // Retry is applied only for safe reads (GET/HEAD) and transient failures.
   retry?: number;
@@ -76,6 +77,7 @@ export const requestJson = async <T>(path: string, options: ApiRequestOptions = 
       const response = await fetch(`${API_BASE_URL}${path}`, {
         method,
         signal: options.signal,
+        credentials: options.credentials ?? 'include',
         keepalive: options.keepalive,
         headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
