@@ -1,11 +1,11 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4010';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface ParsedSearchFilters {
   keyword?: string;
   remotePolicies?: string[];
   employmentTypes?: string[];
   seniorityLevels?: string[];
-  dateRange?: 'all' | '24h' | '7d' | '30d';
+  dateRange?: 'all' | '24h' | '7d' | '14d' | '30d';
 }
 
 const postJson = async <T>(path: string, payload: unknown): Promise<T | null> => {

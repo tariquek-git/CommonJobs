@@ -74,7 +74,7 @@ export const searchSchema = z.object({
     remotePolicies: z.array(remotePolicySchema).default([]),
     seniorityLevels: z.array(senioritySchema).default([]),
     employmentTypes: z.array(employmentTypeSchema).default([]),
-    dateRange: z.enum(['all', '24h', '7d', '30d']).default('all'),
+    dateRange: z.enum(['all', '24h', '7d', '14d', '30d']).default('all'),
     locations: z.array(z.string()).default([])
   })
 });

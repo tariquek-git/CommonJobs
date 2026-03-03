@@ -8,6 +8,7 @@ const withinDateRange = (postedDate: string, range: JobFilterState['dateRange'])
 
   if (range === '24h') return diffMs <= 24 * 60 * 60 * 1000;
   if (range === '7d') return diffMs <= 7 * 24 * 60 * 60 * 1000;
+  if (range === '14d') return diffMs <= 14 * 24 * 60 * 60 * 1000;
   if (range === '30d') return diffMs <= 30 * 24 * 60 * 60 * 1000;
   return true;
 };

@@ -3,6 +3,13 @@ import React from 'react';
 import { RemotePolicy, EmploymentType, JobFilterState, SeniorityLevel } from '../types';
 import { X } from 'lucide-react';
 
+const DATE_RANGE_OPTIONS: Array<{ value: JobFilterState['dateRange']; label: string }> = [
+  { value: '24h', label: '24 hours' },
+  { value: '7d', label: '7 days' },
+  { value: '14d', label: '2 weeks' },
+  { value: '30d', label: '30 days' }
+];
+
 interface JobFiltersProps {
   filters: JobFilterState;
   setFilters: React.Dispatch<React.SetStateAction<JobFilterState>>;
@@ -78,7 +85,8 @@ const JobFilters: React.FC<JobFiltersProps> = ({ filters, setFilters }) => {
   const hasFilters = 
     filters.remotePolicies.length > 0 || 
     filters.employmentTypes.length > 0 || 
-    filters.seniorityLevels.length > 0;
+    filters.seniorityLevels.length > 0 ||
+    filters.dateRange !== 'all';
 
   return (
     <div className="space-y-6">
@@ -103,6 +111,37 @@ const JobFilters: React.FC<JobFiltersProps> = ({ filters, setFilters }) => {
             filterKey="seniorityLevels"
             onToggle={toggleFilter}
         />
+
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Date Posted</div>
+          <div className="flex flex-wrap gap-2">
+            {DATE_RANGE_OPTIONS.map((option) => {
+              const isActive = filters.dateRange === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      dateRange: prev.dateRange === option.value ? 'all' : option.value
+                    }))
+                  }
+                  className={`
+                    px-3 py-1.5 rounded-full text-xs font-bold transition-all border
+                    ${isActive
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }
+                  `}
+                  aria-pressed={isActive}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         
         {hasFilters && (
             <button 

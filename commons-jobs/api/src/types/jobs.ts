@@ -36,6 +36,6 @@ export interface JobFilterState {
   remotePolicies: RemotePolicy[];
   seniorityLevels: SeniorityLevel[];
   employmentTypes: EmploymentType[];
-  dateRange: 'all' | '24h' | '7d' | '30d';
+  dateRange: 'all' | '24h' | '7d' | '14d' | '30d';
   locations: string[];
 }

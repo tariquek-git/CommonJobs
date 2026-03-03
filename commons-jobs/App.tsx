@@ -187,8 +187,8 @@ const App: React.FC = () => {
             const parsedFilters = await parseSearchQuery(searchQuery);
             if (parsedFilters) {
                 const nextKeyword = typeof parsedFilters.keyword === 'string' ? parsedFilters.keyword.trim() : '';
-                const nextDateRange = (['all', '24h', '7d', '30d'] as const).includes(parsedFilters.dateRange || 'all')
-                  ? (parsedFilters.dateRange as 'all' | '24h' | '7d' | '30d')
+                const nextDateRange = (['all', '24h', '7d', '14d', '30d'] as const).includes(parsedFilters.dateRange || 'all')
+                  ? (parsedFilters.dateRange as 'all' | '24h' | '7d' | '14d' | '30d')
                   : 'all';
                 setFilters(prev => ({
                     ...prev,
