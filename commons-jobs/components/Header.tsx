@@ -22,10 +22,10 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
           </div>
           <div className="flex flex-col">
             <span className="text-lg font-bold text-gray-900 tracking-tight leading-none">
-                Commons Jobs
+                Fintech Commons
             </span>
             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                By Fintech Commons
+                Fintech Jobs by Tarique
             </span>
           </div>
         </button>

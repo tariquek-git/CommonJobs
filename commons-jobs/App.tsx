@@ -9,8 +9,8 @@ import DataTerms from './components/DataTerms';
 import WhyWhoWhat from './components/WhyWhoWhat';
 import FAQ from './components/FAQ';
 import JobDetailModal from './components/JobDetailModal';
-import { JobFilterState, JobPosting } from './types';
-import { getJobs, getJobById, adminLogin, hasAdminSession } from './services/jobService';
+import { EmploymentType, JobFilterState, JobPosting, RemotePolicy, SeniorityLevel } from './types';
+import { checkAdminSession, getJobs, getJobById, adminLogin } from './services/jobService';
 import { parseSearchQuery } from './services/geminiService';
 import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users } from 'lucide-react';
 
@@ -49,9 +49,21 @@ const App: React.FC = () => {
     dateRange: 'all'
   });
 
+  const normalizeStringArrayFilter = <T extends string>(value: unknown, allowed: readonly T[]): T[] => {
+    if (!Array.isArray(value)) return [];
+    return Array.from(
+      new Set(
+        value.filter((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T))
+      )
+    );
+  };
+
   // URL Sync
   useEffect(() => {
-    setIsAdmin(hasAdminSession());
+    void (async () => {
+      const authenticated = await checkAdminSession();
+      setIsAdmin(authenticated);
+    })();
 
     // 1. Parse URL params on mount
     const params = new URLSearchParams(window.location.search);
@@ -90,11 +102,11 @@ const App: React.FC = () => {
 
     // Update Page Title
     if (selectedJob) {
-        document.title = `${selectedJob.roleTitle} @ ${selectedJob.companyName} | Commons Jobs`;
+        document.title = `${selectedJob.roleTitle} @ ${selectedJob.companyName} | Fintech Commons`;
     } else if (filters.keyword) {
-        document.title = `${filters.keyword} Jobs | Commons Jobs`;
+        document.title = `${filters.keyword} Jobs | Fintech Commons`;
     } else {
-        document.title = 'Commons Jobs | Fintech Commons';
+        document.title = 'Fintech Commons | Fintech Jobs by Tarique';
     }
 
   }, [filters.keyword, selectedJob, feedType]);
@@ -174,13 +186,17 @@ const App: React.FC = () => {
         try {
             const parsedFilters = await parseSearchQuery(searchQuery);
             if (parsedFilters) {
+                const nextKeyword = typeof parsedFilters.keyword === 'string' ? parsedFilters.keyword.trim() : '';
+                const nextDateRange = (['all', '24h', '7d', '30d'] as const).includes(parsedFilters.dateRange || 'all')
+                  ? (parsedFilters.dateRange as 'all' | '24h' | '7d' | '30d')
+                  : 'all';
                 setFilters(prev => ({
                     ...prev,
-                    keyword: parsedFilters.keyword || '',
-                    remotePolicies: parsedFilters.remotePolicies || [],
-                    employmentTypes: parsedFilters.employmentTypes || [],
-                    seniorityLevels: parsedFilters.seniorityLevels || [],
-                    dateRange: parsedFilters.dateRange || 'all'
+                    keyword: nextKeyword,
+                    remotePolicies: normalizeStringArrayFilter(parsedFilters.remotePolicies, Object.values(RemotePolicy)),
+                    employmentTypes: normalizeStringArrayFilter(parsedFilters.employmentTypes, Object.values(EmploymentType)),
+                    seniorityLevels: normalizeStringArrayFilter(parsedFilters.seniorityLevels, Object.values(SeniorityLevel)),
+                    dateRange: nextDateRange
                 }));
             }
         } finally {
@@ -410,7 +426,7 @@ const App: React.FC = () => {
                 params.delete('jobId');
                 const url = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
                 window.history.pushState({}, '', url);
-                document.title = 'Commons Jobs | Fintech Commons';
+                document.title = 'Fintech Commons | Fintech Jobs by Tarique';
             }} 
           />
       )}
@@ -471,7 +487,7 @@ const App: React.FC = () => {
       <footer className="border-t border-gray-200 py-12 mt-16 bg-white">
         <div className="max-w-5xl mx-auto px-4 text-center space-y-6">
           <div className="flex items-center justify-center gap-2 text-gray-900 font-bold text-lg tracking-tight hover:text-gray-600 transition-all duration-500">
-             <Hexagon size={20} strokeWidth={2.5} /> Commons Jobs
+             <Hexagon size={20} strokeWidth={2.5} /> Fintech Commons
           </div>
           <p className="text-gray-500 text-sm">Curated opportunities for the next generation of finance.</p>
           

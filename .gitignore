@@ -5,3 +5,5 @@
 
 .DS_Store
 .localized
+.vercel
+.env*.local
