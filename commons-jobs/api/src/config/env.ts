@@ -36,6 +36,7 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   // Not all accounts/APIs expose all historical Gemini model aliases; keep a "flash" default that exists.
   GEMINI_MODEL: z.string().trim().min(1).default('gemini-flash-latest'),
+  AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(20000).default(8000),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   RATE_LIMIT_MAX_SUBMIT: z.coerce.number().default(20),
   RATE_LIMIT_MAX_ADMIN_LOGIN: z.coerce.number().default(30),

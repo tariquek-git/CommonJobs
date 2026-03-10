@@ -145,6 +145,7 @@ Output directory: `/Users/tarique/Documents/commons-jobs/dist`
    - `ADMIN_COOKIE_NAME=commons_jobs_admin` (optional override)
    - `CLIENT_ORIGIN=https://fintechcommons.com,https://<your-vercel-domain>.vercel.app`
    - `TRUST_PROXY=1`
+   - `AI_TIMEOUT_MS=8000` (recommended fail-open threshold for AI provider latency)
 5. Optional frontend env:
    - `VITE_API_BASE_URL=/api` (default already uses `/api`)
 6. Deploy and verify API health:

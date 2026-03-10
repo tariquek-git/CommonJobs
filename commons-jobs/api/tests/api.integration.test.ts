@@ -316,6 +316,43 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('AI endpoints fail open to heuristic fallback when AI service throws', async () => {
+    const stubAi = {
+      analyzeJobDescription: async () => {
+        throw new Error('AI provider timeout');
+      },
+      parseSearchQuery: async () => {
+        throw new Error('AI provider timeout');
+      }
+    };
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        GEMINI_API_KEY: 'fake-key'
+      }),
+      stubAi as any
+    );
+
+    const analyzeRes = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      payload: { description: 'Senior Product Manager in Toronto, Canada' }
+    });
+    expect(analyzeRes.statusCode).toBe(200);
+    expect((analyzeRes.json() as { fallback?: boolean }).fallback).toBe(true);
+
+    const parseRes = await app.inject({
+      method: 'POST',
+      url: '/ai/parse-search',
+      payload: { query: 'remote senior risk engineer' }
+    });
+    expect(parseRes.statusCode).toBe(200);
+    expect((parseRes.json() as { fallback?: boolean }).fallback).toBe(true);
+
+    await app.close();
+  });
+
   it('rejects admin endpoints without an authenticated session', async () => {
     const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({ method: 'GET', url: '/admin/jobs' });

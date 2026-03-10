@@ -82,7 +82,7 @@ export const buildApp = (
     trustProxy: appEnv.TRUST_PROXY
   });
   const allowedOrigins = parseAllowedOrigins(appEnv.CLIENT_ORIGIN);
-  const aiService = aiServiceOverride ?? createAiService(appEnv.GEMINI_API_KEY, appEnv.GEMINI_MODEL);
+  const aiService = aiServiceOverride ?? createAiService(appEnv.GEMINI_API_KEY, appEnv.GEMINI_MODEL, appEnv.AI_TIMEOUT_MS);
   const clickDedupeWindow = Math.max(1, appEnv.CLICK_DEDUPE_WINDOW_MS);
   const clickDedupe = new Map<string, number>();
 
@@ -536,7 +536,12 @@ export const buildApp = (
 
     const body = (request.body || {}) as { description?: string };
     if (!body.description) return badRequest(reply, 'Description required');
-    const result = await aiService.analyzeJobDescription(body.description);
+    let result: Awaited<ReturnType<typeof aiService.analyzeJobDescription>> = null;
+    try {
+      result = await aiService.analyzeJobDescription(body.description);
+    } catch (error) {
+      app.log.warn({ err: error }, 'AI analysis failed; returning heuristic fallback');
+    }
     if (!result) {
       return { result: heuristicAnalyzeJobDescription(body.description), fallback: true };
     }
@@ -557,7 +562,12 @@ export const buildApp = (
 
     const body = (request.body || {}) as { query?: string };
     if (!body.query) return badRequest(reply, 'Query required');
-    const result = await aiService.parseSearchQuery(body.query);
+    let result: Awaited<ReturnType<typeof aiService.parseSearchQuery>> = null;
+    try {
+      result = await aiService.parseSearchQuery(body.query);
+    } catch (error) {
+      app.log.warn({ err: error }, 'AI search parsing failed; returning heuristic fallback');
+    }
     if (!result) {
       return { result: heuristicParseSearchQuery(body.query), fallback: true };
     }

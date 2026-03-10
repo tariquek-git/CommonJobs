@@ -62,4 +62,14 @@ describe('createAiService', () => {
     expect(result.seniorityLevels).toContain('Senior');
     expect(result.dateRange).toBe('24h');
   });
+
+  it('returns null when Gemini analysis exceeds timeout', async () => {
+    generateContentMock.mockImplementationOnce(() => new Promise(() => undefined));
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest', 5);
+    const result = await service.analyzeJobDescription('Very long description that may time out');
+
+    expect(result).toBeNull();
+  });
 });

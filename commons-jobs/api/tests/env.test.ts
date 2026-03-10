@@ -13,6 +13,7 @@ const baseEnv = {
   RATE_LIMIT_MAX_SUBMIT: '20',
   RATE_LIMIT_MAX_ADMIN_LOGIN: '30',
   RATE_LIMIT_MAX_CLICK: '60',
+  AI_TIMEOUT_MS: '8000',
   CLICK_DEDUPE_WINDOW_MS: '60000',
   TRUST_PROXY: 'false'
 };
@@ -101,5 +102,23 @@ describe('parseEnv', () => {
         ADMIN_TOKEN_SECRET: 'super-long-token-secret-for-production-2026'
       })
     ).toThrow('STORAGE_PROVIDER must be "supabase" in production');
+  });
+
+  it('rejects AI timeout values outside safe bounds', () => {
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'test',
+        AI_TIMEOUT_MS: '999'
+      })
+    ).toThrow();
+
+    expect(() =>
+      parseEnv({
+        ...baseEnv,
+        NODE_ENV: 'test',
+        AI_TIMEOUT_MS: '25000'
+      })
+    ).toThrow();
   });
 });

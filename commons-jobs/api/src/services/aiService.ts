@@ -117,7 +117,14 @@ export const heuristicParseSearchQuery = (query: string) => {
   };
 };
 
-export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') => {
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> => {
+  const timeoutPromise = new Promise<null>((resolve) => {
+    setTimeout(() => resolve(null), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
+};
+
+export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', timeoutMs = 8000) => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
   const safeJsonParse = <T>(text: string): T | null => {
@@ -142,7 +149,7 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
     if (!ai || !description.trim()) return null;
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model,
         contents: `Extract structured job metadata and a concise summary from this posting:\n\n${description.slice(0, 8000)}`,
         config: {
@@ -165,9 +172,9 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
             }
           }
         }
-      });
+      }), timeoutMs);
 
-      if (!response.text) return null;
+      if (!response || !response.text) return null;
       return safeJsonParse(response.text);
     } catch {
       return null;
@@ -178,7 +185,7 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
     if (!ai || !query.trim()) return null;
 
     try {
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model,
         contents: [
           'Translate this job search query into filter JSON.',
@@ -204,9 +211,9 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest') 
             }
           }
         }
-      });
+      }), timeoutMs);
 
-      if (!response.text) return null;
+      if (!response || !response.text) return null;
       return safeJsonParse(response.text);
     } catch {
       return null;
