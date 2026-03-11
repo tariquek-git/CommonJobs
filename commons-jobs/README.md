@@ -191,6 +191,25 @@ curl -s -b /tmp/commons_admin.cookie https://fintechcommons.com/api/admin/runtim
 8. Active job clicks increment; non-active job clicks return not found.
 9. `/api/health` returns `{ ok: true }`.
 
+## Beta Operations
+Use these scripts for the Stability + Trust beta loop:
+
+```bash
+cd /Users/tarique/Documents/commons-jobs
+
+# End-to-end production smoke flow (includes submit -> approve -> click checks)
+ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:smoke
+
+# AI reliability check against /api/ai/* with fallback and 5xx thresholds
+npm run ops:ai-monitor
+
+# Optional hygiene cleanup: archive QA/smoke/test roles by title pattern
+ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:archive-test-jobs
+```
+
+Runbook:
+- `/Users/tarique/Documents/commons-jobs/docs/beta-ops.md`
+
 ## Public Beta Tester Instructions (Copy/Paste)
 Public link:
 - `https://fintechcommons.com`

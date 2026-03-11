@@ -25,3 +25,4 @@ output/
 *.sw?
 .vercel
 FOF-finflow-architect/
+.playwright-cli/
