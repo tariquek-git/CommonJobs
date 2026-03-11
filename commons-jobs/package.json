@@ -10,7 +10,10 @@
     "test": "vitest run tests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:watch": "vitest tests",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "ops:smoke": "node scripts/smoke-prod.mjs",
+    "ops:ai-monitor": "node scripts/monitor-ai.mjs",
+    "ops:archive-test-jobs": "node scripts/archive-test-jobs.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
