@@ -17,6 +17,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
 
   useEffect(() => {
     // Prevent background scrolling when modal is open
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -25,7 +26,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [onClose]);

@@ -10,6 +10,27 @@ interface JobCardProps {
   onSelect: (job: JobPosting) => void;
 }
 
+const buildSentencePreview = (value: string, maxSentences = 4) => {
+  const sentences =
+    value
+      .trim()
+      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean) ?? [];
+
+  if (sentences.length <= maxSentences) {
+    return {
+      preview: value.trim(),
+      truncated: false
+    };
+  }
+
+  return {
+    preview: `${sentences.slice(0, maxSentences).join(' ')}…`,
+    truncated: true
+  };
+};
+
 const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -26,6 +47,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const isHot = typeof days === 'number' && days <= 5;
   const isAggregated = job.sourceType === 'Aggregated';
   const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
+  const summaryPreview = job.intelligenceSummary ? buildSentencePreview(job.intelligenceSummary, 4) : null;
 
   return (
     <article
@@ -104,10 +126,19 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Intelligence Block */}
       {job.intelligenceSummary && (
-          <div className={`mb-6 rounded-lg p-3 grow ${isAggregated ? 'bg-blue-50/30 border border-blue-50' : 'bg-gray-50/80 border border-gray-100'}`}>
-              <p className="text-xs md:text-sm text-gray-600 leading-relaxed line-clamp-3">
-                  {job.intelligenceSummary}
+          <div
+            className={`mb-6 rounded-lg p-4 grow min-h-[120px] ${
+              isAggregated ? 'bg-blue-50/30 border border-blue-50' : 'bg-gray-50/80 border border-gray-100'
+            }`}
+          >
+              <p className="text-xs md:text-sm text-gray-600 leading-6">
+                  {summaryPreview?.preview}
               </p>
+              {summaryPreview?.truncated ? (
+                <p className="mt-2 text-[11px] font-medium text-blue-600">
+                  Open job details to read the full AI summary.
+                </p>
+              ) : null}
           </div>
       )}
 

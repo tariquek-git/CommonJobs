@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { EmploymentType, JobPosting, JobSourceType, RemotePolicy } from '../types';
 import { COUNTRIES, PROVINCES, MAJOR_CITIES } from '../constants';
 import { analyzeJobDescription } from '../services/geminiService';
-import { Sparkles, Loader2, CheckCircle2, AlertCircle, X, HelpCircle } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 
 interface SubmitJobFormProps {
@@ -31,12 +31,10 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 }) => {
   const isEditing = !!initialData;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isScraping, setIsScraping] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [jdText, setJdText] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [scrapeToast, setScrapeToast] = useState(false);
   
   const jdInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,14 +66,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   const [submitterEmail, setSubmitterEmail] = useState(initialData?.submitterEmail || '');
   const [postedDateInput, setPostedDateInput] = useState(toDateTimeLocal(initialData?.postedDate));
 
-  // Auto-clear toast
-  useEffect(() => {
-    if (scrapeToast) {
-      const timer = setTimeout(() => setScrapeToast(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [scrapeToast]);
-
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCountry = e.target.value;
     setFormData(prev => ({
@@ -85,24 +75,12 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
     }));
   };
 
-  const handleLinkAutofill = async () => {
-    if (!formData.externalLink) {
-        setError("Please enter a link first.");
-        return;
-    }
-    
-    setIsScraping(true);
+  const focusJobDescriptionField = () => {
     setError(null);
-
-    // Simulate scraping delay then blocking
-    setTimeout(() => {
-        setIsScraping(false);
-        setScrapeToast(true); // Trigger "Blocked by host" toast
-        if (jdInputRef.current) {
-            jdInputRef.current.focus();
-            jdInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, 1200);
+    if (jdInputRef.current) {
+      jdInputRef.current.focus();
+      jdInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const normalizeAIData = (data: Record<string, unknown>) => {
@@ -256,15 +234,6 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
       
-      {/* Toast */}
-      {scrapeToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 w-[90%] md:w-auto animate-fade-in">
-            <AlertCircle size={18} className="text-yellow-400 shrink-0" />
-            <div className="text-sm font-medium">Auto-fill blocked by host. Please paste JD below.</div>
-            <button type="button" onClick={() => setScrapeToast(false)} className="ml-auto hover:text-gray-300" aria-label="Close message"><X size={16} /></button>
-        </div>
-      )}
-
       <div className="p-6 border-b border-gray-100 bg-gray-50">
         <h2 className="text-xl font-bold text-gray-900 tracking-tight">
           {isEditing ? 'Edit Job' : (isAdminMode ? 'Create Job' : 'Post a Role')}
@@ -292,12 +261,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 </label>
                 <button
                     type="button"
-                    onClick={handleLinkAutofill}
-                    disabled={isScraping || !formData.externalLink}
+                    onClick={focusJobDescriptionField}
                     className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50"
                 >
-                    {isScraping ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                    {isScraping ? 'Analyzing...' : 'Auto-Fill Intelligence'}
+                    <Sparkles size={12} />
+                    Use JD Paste Mode
                 </button>
              </div>
              

@@ -25,9 +25,14 @@ export class FileJobRepository implements JobRepository {
       const parsed = JSON.parse(data) as JobPosting[];
       if (!Array.isArray(parsed)) return seedJobs.map(cloneJob);
       return parsed.map(cloneJob);
-    } catch {
-      await this.writeJobs(seedJobs);
-      return seedJobs.map(cloneJob);
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError.code === 'ENOENT') {
+        await this.writeJobs(seedJobs);
+        return seedJobs.map(cloneJob);
+      }
+
+      throw new Error(`Failed to read jobs from ${this.filePath}`, { cause: error });
     }
   }
 

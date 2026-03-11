@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
-    "@google/genai": "^1.41.0",
     "@supabase/supabase-js": "^2.57.2",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.6.1",

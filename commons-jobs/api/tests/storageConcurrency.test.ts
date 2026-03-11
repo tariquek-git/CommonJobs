@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -73,5 +73,16 @@ describe('storage concurrency and click isolation', () => {
 
     expect(before).toBe(after);
     expect(await clickRepo.get('job-1')).toBe(2);
+  });
+
+  it('does not overwrite file contents with seeds when jobs file is invalid JSON', async () => {
+    const dir = await createTempDir();
+    const jobsPath = join(dir, 'jobs.json');
+    const invalid = '{ definitely: not-json';
+    await writeFile(jobsPath, invalid, 'utf8');
+
+    const repo = new FileJobRepository(jobsPath);
+    await expect(repo.list()).rejects.toThrow('Failed to read jobs');
+    await expect(readFile(jobsPath, 'utf8')).resolves.toBe(invalid);
   });
 });

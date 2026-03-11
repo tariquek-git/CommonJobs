@@ -1,33 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { __clearJobSearchCacheForTests, adminLogin, getJobs, hasAdminSession } from '../services/jobService';
-
-class LocalStorageMock {
-  private readonly store = new Map<string, string>();
-
-  getItem(key: string) {
-    return this.store.has(key) ? this.store.get(key)! : null;
-  }
-
-  setItem(key: string, value: string) {
-    this.store.set(key, value);
-  }
-
-  removeItem(key: string) {
-    this.store.delete(key);
-  }
-
-  clear() {
-    this.store.clear();
-  }
-}
+import { __clearJobSearchCacheForTests, adminLogin, checkAdminSession, getJobs, hasAdminSession } from '../services/jobService';
 
 beforeEach(() => {
   vi.restoreAllMocks();
   __clearJobSearchCacheForTests();
-  Object.defineProperty(globalThis, 'localStorage', {
-    value: new LocalStorageMock(),
-    configurable: true
-  });
 });
 
 describe('jobService', () => {
@@ -36,12 +12,26 @@ describe('jobService', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ token: 'abc123' })
+        json: async () => ({ ok: true })
       })
     );
 
     const ok = await adminLogin('admin', 'password');
     expect(ok).toBe(true);
+    expect(hasAdminSession()).toBe(true);
+  });
+
+  it('checks cookie-backed admin session state', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ authenticated: true })
+      })
+    );
+
+    const authenticated = await checkAdminSession();
+    expect(authenticated).toBe(true);
     expect(hasAdminSession()).toBe(true);
   });
 

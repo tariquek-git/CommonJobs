@@ -1,15 +1,13 @@
-import { JobPosting, JobFilterState, JobStatus } from '../types';
+import { JobFilterState, JobPosting, JobStatus } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-const ADMIN_TOKEN_KEY = 'commons_jobs_admin_token';
 const JOB_SEARCH_CACHE_TTL_MS = 15_000;
 
 type FeedType = 'direct' | 'aggregated';
 type CacheEntry = { at: number; jobs: JobPosting[] };
 
-const getToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
-const setToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token);
-const clearToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
+let inMemoryAdminToken: string | null = null;
+let hasCookieSession = false;
 const jobSearchCache = new Map<string, CacheEntry>();
 
 const buildJobsCacheKey = (filters: JobFilterState, feedType: FeedType): string =>
@@ -18,6 +16,7 @@ const buildJobsCacheKey = (filters: JobFilterState, feedType: FeedType): string 
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers || {})
@@ -42,17 +41,26 @@ const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
 };
 
 const adminHeaders = (): HeadersInit => {
-  const token = getToken();
-  if (!token) {
-    throw new Error('Admin session expired. Please log in again.');
-  }
-
-  return {
-    Authorization: `Bearer ${token}`
-  };
+  if (!inMemoryAdminToken) return {};
+  return { Authorization: `Bearer ${inMemoryAdminToken}` };
 };
 
-export const hasAdminSession = (): boolean => Boolean(getToken());
+export const hasAdminSession = (): boolean => hasCookieSession || Boolean(inMemoryAdminToken);
+
+export const checkAdminSession = async (): Promise<boolean> => {
+  try {
+    const data = await apiFetch<{ authenticated: boolean }>('/auth/admin-session', {
+      method: 'GET'
+    });
+    hasCookieSession = Boolean(data.authenticated);
+    if (!hasCookieSession) inMemoryAdminToken = null;
+    return hasCookieSession;
+  } catch {
+    hasCookieSession = false;
+    inMemoryAdminToken = null;
+    return false;
+  }
+};
 
 export const getJobById = async (id: string): Promise<JobPosting | undefined> => {
   try {
@@ -123,22 +131,28 @@ export const trackClick = (id: string) => {
 
 export const adminLogin = async (username: string, password: string): Promise<boolean> => {
   try {
-    const data = await apiFetch<{ token: string }>('/auth/admin-login', {
+    const data = await apiFetch<{ ok?: boolean; token?: string }>('/auth/admin-login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
-
-    if (!data.token) return false;
-    setToken(data.token);
+    inMemoryAdminToken = typeof data.token === 'string' ? data.token : null;
+    hasCookieSession = true;
     return true;
   } catch {
-    clearToken();
+    inMemoryAdminToken = null;
+    hasCookieSession = false;
     return false;
   }
 };
 
-export const adminLogout = () => {
-  clearToken();
+export const adminLogout = async (): Promise<void> => {
+  inMemoryAdminToken = null;
+  hasCookieSession = false;
+  try {
+    await apiFetch('/auth/admin-logout', { method: 'POST' });
+  } catch {
+    // best effort logout cleanup
+  }
 };
 
 export const getAdminJobs = async (): Promise<JobPosting[]> => {

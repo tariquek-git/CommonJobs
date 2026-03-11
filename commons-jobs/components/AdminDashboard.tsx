@@ -31,14 +31,26 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleStatusUpdate = async (id: string, status: JobStatus) => {
-    setJobs(prev => prev.map(job => job.id === id ? { ...job, status } : job));
-    await updateJobStatus(id, status);
+    const previousStatus = jobs.find((job) => job.id === id)?.status;
+    if (!previousStatus) return;
+
+    setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, status } : job)));
+    try {
+      await updateJobStatus(id, status);
+    } catch {
+      setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, status: previousStatus } : job)));
+      setError('Status update failed. Please try again.');
+    }
   };
 
   const handleArchive = async (id: string) => {
     if (window.confirm('Archive this job? It will not be deleted from DB.')) {
-        await updateJobStatus(id, 'archived');
-        fetchJobs();
+        try {
+          await updateJobStatus(id, 'archived');
+          fetchJobs();
+        } catch {
+          setError('Archive failed. Please try again.');
+        }
     }
   };
 

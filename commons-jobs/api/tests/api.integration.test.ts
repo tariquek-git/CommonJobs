@@ -22,6 +22,7 @@ const buildTestEnv = (overrides: Record<string, string> = {}) =>
     RATE_LIMIT_WINDOW_MS: '900000',
     RATE_LIMIT_MAX_SUBMIT: '20',
     RATE_LIMIT_MAX_ADMIN_LOGIN: '30',
+    RATE_LIMIT_MAX_SEARCH: '120',
     RATE_LIMIT_MAX_CLICK: '60',
     CLICK_DEDUPE_WINDOW_MS: '60000',
     TRUST_PROXY: 'false',
@@ -65,13 +66,13 @@ describe('API integration', () => {
       payload: { username: 'admin', password: 'Tark101' }
     });
     expect(loginRes.statusCode).toBe(200);
-    const token = (loginRes.json() as { token: string }).token;
-    expect(token).toBeTruthy();
+    const sessionCookie = loginRes.headers['set-cookie'];
+    expect(sessionCookie).toBeTruthy();
 
     const approveRes = await app.inject({
       method: 'PATCH',
       url: `/admin/jobs/${submitBody.jobId}/status`,
-      headers: { authorization: `Bearer ${token}` },
+      headers: { cookie: Array.isArray(sessionCookie) ? sessionCookie[0] : sessionCookie || '' },
       payload: { status: 'active' }
     });
     expect(approveRes.statusCode).toBe(200);
@@ -123,6 +124,36 @@ describe('API integration', () => {
     });
 
     expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('supports cookie-based admin session check and logout', async () => {
+    const app = buildApp(new InMemoryJobRepository(), new InMemoryClickRepository(), buildTestEnv());
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    expect(loginRes.statusCode).toBe(200);
+    const sessionCookie = loginRes.headers['set-cookie'];
+    const cookieHeader = Array.isArray(sessionCookie) ? sessionCookie[0] : sessionCookie || '';
+
+    const sessionRes = await app.inject({
+      method: 'GET',
+      url: '/auth/admin-session',
+      headers: { cookie: cookieHeader }
+    });
+    expect(sessionRes.statusCode).toBe(200);
+    expect((sessionRes.json() as { authenticated: boolean }).authenticated).toBe(true);
+
+    const logoutRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-logout',
+      headers: { cookie: cookieHeader }
+    });
+    expect(logoutRes.statusCode).toBe(200);
+
     await app.close();
   });
 
@@ -183,6 +214,45 @@ describe('API integration', () => {
       method: 'POST',
       url: '/jobs/submissions',
       headers: { 'x-forwarded-for': '1.1.1.1' },
+      payload
+    });
+    expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('rate limiting applies to search requests per request.ip', async () => {
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        RATE_LIMIT_MAX_SEARCH: '1'
+      })
+    );
+
+    const payload = {
+      feedType: 'direct',
+      filters: {
+        keyword: '',
+        remotePolicies: [],
+        seniorityLevels: [],
+        employmentTypes: [],
+        dateRange: 'all',
+        locations: []
+      }
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      payload
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      headers: { 'x-forwarded-for': '203.0.113.44' },
       payload
     });
     expect(second.statusCode).toBe(429);
@@ -296,6 +366,48 @@ describe('API integration', () => {
     });
     expect(second.statusCode).toBe(429);
 
+    await app.close();
+  });
+
+  it('AI parse endpoint rate limit applies per request.ip', async () => {
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        RATE_LIMIT_MAX_SUBMIT: '2'
+      })
+    );
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/ai/parse-search',
+      payload: { query: 'remote fintech jobs' }
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/ai/parse-search',
+      headers: { 'x-forwarded-for': '198.51.100.7' },
+      payload: { query: 'remote fintech jobs' }
+    });
+    expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
+  it('AI analysis endpoint rejects oversized descriptions', async () => {
+    const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
+    const oversized = 'a'.repeat(12_001);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/ai/analyze-job',
+      payload: { description: oversized }
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error).toContain('12000');
     await app.close();
   });
 });

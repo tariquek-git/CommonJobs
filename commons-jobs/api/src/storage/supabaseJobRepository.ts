@@ -38,6 +38,10 @@ const toRow = (job: JobPosting) => ({
   posted_date: job.postedDate
 });
 
+const jobsEqual = (left: JobPosting, right: JobPosting): boolean => {
+  return JSON.stringify(toRow(left)) === JSON.stringify(toRow(right));
+};
+
 const fromRow = (row: SupabaseJobRow): JobPosting => {
   const payload = parsePayload(row.payload);
 
@@ -70,6 +74,7 @@ const fromRow = (row: SupabaseJobRow): JobPosting => {
 };
 
 const chunk = <T>(items: T[], size: number): T[][] => {
+  if (items.length === 0) return [];
   if (items.length <= size) return [items];
   const out: T[][] = [];
   for (let idx = 0; idx < items.length; idx += size) {
@@ -107,20 +112,24 @@ export class SupabaseJobRepository implements JobRepository {
       const workingCopy = currentJobs.map(cloneJob);
       const result = await mutator(workingCopy);
 
-      const rows = workingCopy.map(toRow);
-      for (const rowsChunk of chunk(rows, 250)) {
-        const { error } = await this.supabase
-          .from(this.tableName)
-          .upsert(rowsChunk, { onConflict: 'id' });
+      const currentMap = new Map(currentJobs.map((job) => [job.id, job]));
+      const nextMap = new Map(workingCopy.map((job) => [job.id, job]));
 
+      const changedRows = workingCopy
+        .filter((job) => {
+          const previous = currentMap.get(job.id);
+          return !previous || !jobsEqual(previous, job);
+        })
+        .map(toRow);
+
+      for (const rowsChunk of chunk(changedRows, 250)) {
+        const { error } = await this.supabase.from(this.tableName).upsert(rowsChunk, { onConflict: 'id' });
         if (error) {
           throw new Error(`Failed to save jobs to Supabase: ${error.message}`);
         }
       }
 
-      const previousIds = new Set(currentJobs.map((job) => job.id));
-      const nextIds = new Set(workingCopy.map((job) => job.id));
-      const removedIds = Array.from(previousIds).filter((id) => !nextIds.has(id));
+      const removedIds = Array.from(currentMap.keys()).filter((id) => !nextMap.has(id));
 
       for (const idsChunk of chunk(removedIds, 250)) {
         const { error } = await this.supabase.from(this.tableName).delete().in('id', idsChunk);

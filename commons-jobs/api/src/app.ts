@@ -21,6 +21,36 @@ import { JobRepository } from './storage/jobRepository.js';
 import { createAiService } from './services/aiService.js';
 import { JobPosting } from './types/jobs.js';
 
+const ADMIN_SESSION_COOKIE = 'commons_jobs_admin_session';
+const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
+
+const parseCookies = (rawCookieHeader?: string): Record<string, string> => {
+  if (!rawCookieHeader) return {};
+
+  return rawCookieHeader
+    .split(';')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((acc, segment) => {
+      const separator = segment.indexOf('=');
+      if (separator <= 0) return acc;
+      const key = segment.slice(0, separator).trim();
+      const value = segment.slice(separator + 1).trim();
+      acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {});
+};
+
+const buildAdminSessionCookie = (token: string, secure: boolean): string => {
+  const secureFlag = secure ? '; Secure' : '';
+  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ADMIN_SESSION_TTL_SEC}${secureFlag}`;
+};
+
+const clearAdminSessionCookie = (secure: boolean): string => {
+  const secureFlag = secure ? '; Secure' : '';
+  return `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureFlag}`;
+};
+
 export const buildApp = (repository: JobRepository, clickRepository: ClickRepository, appEnv: AppEnv) => {
   const app = Fastify({
     logger: appEnv.NODE_ENV !== 'test',
@@ -30,8 +60,12 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   const aiService = createAiService(appEnv.GEMINI_API_KEY);
   const clickDedupeWindow = Math.max(1, appEnv.CLICK_DEDUPE_WINDOW_MS);
   const clickDedupe = new Map<string, number>();
+  const aiRequestsPerWindow = Math.max(1, Math.floor(appEnv.RATE_LIMIT_MAX_SUBMIT / 2));
+  const MAX_AI_DESCRIPTION_CHARS = 12_000;
+  const MAX_AI_QUERY_CHARS = 500;
 
   app.register(cors, {
+    credentials: true,
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
@@ -55,10 +89,14 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
     });
   });
 
-  const adminGuard = (authorization?: string) => {
+  const adminGuardFromRequest = (request: { headers: { authorization?: string; cookie?: string } }) => {
     if (!appEnv.ADMIN_TOKEN_SECRET) return false;
-    if (!authorization || !authorization.startsWith('Bearer ')) return false;
-    const token = authorization.slice('Bearer '.length);
+    const bearerToken = request.headers.authorization?.startsWith('Bearer ')
+      ? request.headers.authorization.slice('Bearer '.length)
+      : undefined;
+    const cookieToken = parseCookies(request.headers.cookie)[ADMIN_SESSION_COOKIE];
+    const token = bearerToken || cookieToken;
+    if (!token) return false;
     return verifyAdminToken(token, appEnv.ADMIN_TOKEN_SECRET);
   };
 
@@ -109,10 +147,27 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
     const validPassword = await verifyAdminPassword(body.password, appEnv.ADMIN_PASSWORD_HASH);
     if (!validPassword) return unauthorized(reply, 'Invalid credentials');
 
-    return { token: createAdminToken(appEnv.ADMIN_TOKEN_SECRET) };
+    const token = createAdminToken(appEnv.ADMIN_TOKEN_SECRET);
+    reply.header('Set-Cookie', buildAdminSessionCookie(token, appEnv.NODE_ENV === 'production'));
+    return { ok: true };
+  });
+
+  app.get('/auth/admin-session', async (request) => {
+    return { authenticated: adminGuardFromRequest(request) };
+  });
+
+  app.post('/auth/admin-logout', async (_request, reply) => {
+    reply.header('Set-Cookie', clearAdminSessionCookie(appEnv.NODE_ENV === 'production'));
+    return { ok: true };
   });
 
   app.post('/jobs/search', async (request, reply) => {
+    const limit = checkRateLimit(`job-search:${request.ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: appEnv.RATE_LIMIT_MAX_SEARCH
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
     const parsed = searchSchema.safeParse(request.body || {});
     if (!parsed.success) return badRequest(reply, 'Invalid search request');
 
@@ -127,7 +182,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
     const job = jobs.find((j) => j.id === params.id);
     if (!job) return notFound(reply, 'Job not found');
 
-    const isAdmin = adminGuard(request.headers.authorization);
+    const isAdmin = adminGuardFromRequest(request);
     if (!isAdmin && job.status !== 'active') return notFound(reply, 'Job not found');
     const clicks = await clickRepository.get(job.id);
     return { job: { ...job, clicks } };
@@ -190,7 +245,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.get('/admin/jobs', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuardFromRequest(request)) {
       return unauthorized(reply);
     }
 
@@ -201,7 +256,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.post('/admin/jobs', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuardFromRequest(request)) {
       return unauthorized(reply);
     }
 
@@ -248,7 +303,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.patch('/admin/jobs/:id/status', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuardFromRequest(request)) {
       return unauthorized(reply);
     }
 
@@ -269,7 +324,7 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.patch('/admin/jobs/:id', async (request, reply) => {
-    if (!adminGuard(request.headers.authorization)) {
+    if (!adminGuardFromRequest(request)) {
       return unauthorized(reply);
     }
 
@@ -300,15 +355,35 @@ export const buildApp = (repository: JobRepository, clickRepository: ClickReposi
   });
 
   app.post('/ai/analyze-job', async (request, reply) => {
+    const limit = checkRateLimit(`ai-analyze:${request.ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: aiRequestsPerWindow
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
     const body = (request.body || {}) as { description?: string };
     if (!body.description) return badRequest(reply, 'Description required');
+    if (body.description.length > MAX_AI_DESCRIPTION_CHARS) {
+      return badRequest(reply, `Description must be ${MAX_AI_DESCRIPTION_CHARS} characters or fewer`);
+    }
+
     const result = await aiService.analyzeJobDescription(body.description);
     return { result };
   });
 
   app.post('/ai/parse-search', async (request, reply) => {
+    const limit = checkRateLimit(`ai-parse-search:${request.ip}`, {
+      windowMs: appEnv.RATE_LIMIT_WINDOW_MS,
+      maxRequests: aiRequestsPerWindow
+    });
+    if (!limit.ok) return tooManyRequests(reply, limit.retryAfterSec);
+
     const body = (request.body || {}) as { query?: string };
     if (!body.query) return badRequest(reply, 'Query required');
+    if (body.query.length > MAX_AI_QUERY_CHARS) {
+      return badRequest(reply, `Query must be ${MAX_AI_QUERY_CHARS} characters or fewer`);
+    }
+
     const result = await aiService.parseSearchQuery(body.query);
     return { result };
   });
