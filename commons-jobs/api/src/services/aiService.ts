@@ -150,6 +150,8 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
 
 export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', timeoutMs = 8000) => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+  const fallbackModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
+  const candidateModels = [model, ...fallbackModels].filter((value, index, list) => !!value && list.indexOf(value) === index);
 
   const safeJsonParse = <T>(text: string): T | null => {
     try {
@@ -169,95 +171,115 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
     }
   };
 
+  const generateJson = async (
+    contents: string,
+    responseSchema: Record<string, unknown>
+  ): Promise<Record<string, unknown> | null> => {
+    if (!ai) return null;
+
+    let lastError: unknown = null;
+
+    for (const candidateModel of candidateModels) {
+      try {
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: candidateModel,
+            contents,
+            config: {
+              responseMimeType: 'application/json',
+              responseSchema
+            }
+          }),
+          timeoutMs
+        );
+
+        if (!response || !response.text) {
+          continue;
+        }
+
+        const parsed = safeJsonParse<Record<string, unknown>>(response.text);
+        if (parsed) {
+          return parsed;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    return null;
+  };
+
   const analyzeJobDescription = async (description: string) => {
     if (!ai || !description.trim()) return null;
 
-    try {
-      const response = await withTimeout(ai.models.generateContent({
-        model,
-        contents: [
-          'Extract structured metadata from this job post.',
-          'Write summary as a real person would explain it to a friend.',
-          'Summary length: 4-6 sentences (about 90-150 words).',
-          'Use plain language and concrete details from the JD.',
-          'Avoid corporate buzzwords, jargon, hype, or generic filler.',
-          'No phrases like "world-class", "leverage", "cutting-edge", "mission-critical", or "dynamic environment".',
-          'Explain what they will actually do day to day, who they work with, and what success looks like.',
-          '',
-          description.slice(0, 8000)
-        ].join('\n'),
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              roleTitle: { type: Type.STRING },
-              companyName: { type: Type.STRING },
-              summary: { type: Type.STRING },
-              locationCity: { type: Type.STRING },
-              locationState: { type: Type.STRING },
-              locationCountry: { type: Type.STRING },
-              remotePolicy: { type: Type.STRING },
-              employmentType: { type: Type.STRING },
-              seniority: { type: Type.STRING },
-              salaryRange: { type: Type.STRING },
-              currency: { type: Type.STRING },
-              tags: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
-          }
+    const parsed = await generateJson(
+      [
+        'Extract structured metadata from this job post.',
+        'Write summary as a real person would explain it to a friend.',
+        'Summary length: 4-6 sentences (about 90-150 words).',
+        'Use plain language and concrete details from the JD.',
+        'Avoid corporate buzzwords, jargon, hype, or generic filler.',
+        'No phrases like "world-class", "leverage", "cutting-edge", "mission-critical", or "dynamic environment".',
+        'Explain what they will actually do day to day, who they work with, and what success looks like.',
+        '',
+        description.slice(0, 8000)
+      ].join('\n'),
+      {
+        type: Type.OBJECT,
+        properties: {
+          roleTitle: { type: Type.STRING },
+          companyName: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          locationCity: { type: Type.STRING },
+          locationState: { type: Type.STRING },
+          locationCountry: { type: Type.STRING },
+          remotePolicy: { type: Type.STRING },
+          employmentType: { type: Type.STRING },
+          seniority: { type: Type.STRING },
+          salaryRange: { type: Type.STRING },
+          currency: { type: Type.STRING },
+          tags: { type: Type.ARRAY, items: { type: Type.STRING } }
         }
-      }), timeoutMs);
-
-      if (!response || !response.text) return null;
-      const parsed = safeJsonParse<Record<string, unknown>>(response.text);
-      if (!parsed) return null;
-      const summary = typeof parsed.summary === 'string' ? humanizeSummary(parsed.summary) : '';
-      return {
-        ...parsed,
-        summary
-      };
-    } catch {
-      return null;
-    }
+      }
+    );
+    if (!parsed) return null;
+    const summary = typeof parsed.summary === 'string' ? humanizeSummary(parsed.summary) : '';
+    return {
+      ...parsed,
+      summary
+    };
   };
 
   const parseSearchQuery = async (query: string) => {
     if (!ai || !query.trim()) return null;
 
-    try {
-      const response = await withTimeout(ai.models.generateContent({
-        model,
-        contents: [
-          'Translate this job search query into filter JSON.',
-          'Return JSON only (no markdown).',
-          'Use these enums:',
-          '- dateRange: "all" | "24h" | "7d" | "30d"',
-          '- remotePolicies: ["Onsite" | "Hybrid" | "Remote"]',
-          '- employmentTypes: ["Full-time" | "Contract" | "Internship"]',
-          '- seniorityLevels: ["Junior" | "Mid-Level" | "Senior" | "Lead" | "Executive"]',
-          '',
-          `Query: ${query}`
-        ].join('\n'),
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              keyword: { type: Type.STRING },
-              remotePolicies: { type: Type.ARRAY, items: { type: Type.STRING } },
-              employmentTypes: { type: Type.ARRAY, items: { type: Type.STRING } },
-              seniorityLevels: { type: Type.ARRAY, items: { type: Type.STRING } },
-              dateRange: { type: Type.STRING }
-            }
-          }
+    return generateJson(
+      [
+        'Translate this job search query into filter JSON.',
+        'Return JSON only (no markdown).',
+        'Use these enums:',
+        '- dateRange: "all" | "24h" | "7d" | "30d"',
+        '- remotePolicies: ["Onsite" | "Hybrid" | "Remote"]',
+        '- employmentTypes: ["Full-time" | "Contract" | "Internship"]',
+        '- seniorityLevels: ["Junior" | "Mid-Level" | "Senior" | "Lead" | "Executive"]',
+        '',
+        `Query: ${query}`
+      ].join('\n'),
+      {
+        type: Type.OBJECT,
+        properties: {
+          keyword: { type: Type.STRING },
+          remotePolicies: { type: Type.ARRAY, items: { type: Type.STRING } },
+          employmentTypes: { type: Type.ARRAY, items: { type: Type.STRING } },
+          seniorityLevels: { type: Type.ARRAY, items: { type: Type.STRING } },
+          dateRange: { type: Type.STRING }
         }
-      }), timeoutMs);
-
-      if (!response || !response.text) return null;
-      return safeJsonParse(response.text);
-    } catch {
-      return null;
-    }
+      }
+    );
   };
 
   return { analyzeJobDescription, parseSearchQuery };

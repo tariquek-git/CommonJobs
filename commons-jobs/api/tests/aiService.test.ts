@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const generateContentMock = vi.fn(async () => ({ text: '{}' }));
 const googleGenAIMock = vi.fn(() => ({
@@ -17,6 +17,11 @@ vi.mock('@google/genai', () => ({
 }));
 
 describe('createAiService', () => {
+  beforeEach(() => {
+    generateContentMock.mockReset();
+    generateContentMock.mockResolvedValue({ text: '{}' });
+  });
+
   it('uses the configured model when calling Gemini', async () => {
     const { createAiService } = await import('../src/services/aiService.js');
     const service = createAiService('fake-key', 'gemini-flash-latest');
@@ -26,6 +31,27 @@ describe('createAiService', () => {
     expect(generateContentMock).toHaveBeenCalled();
     const call = (generateContentMock.mock.calls as any[])[0]?.[0] as { model?: string };
     expect(call.model).toBe('gemini-flash-latest');
+  });
+
+  it('falls back to backup Gemini models when the configured model fails', async () => {
+    generateContentMock
+      .mockRejectedValueOnce(new Error('model not found'))
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          roleTitle: 'Risk Engineer',
+          companyName: 'Acme',
+          summary: 'You will build risk controls with product and engineering.'
+        })
+      });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest');
+    const result = await service.analyzeJobDescription('Acme is hiring a risk engineer in Toronto, Canada.');
+
+    expect(result?.companyName).toBe('Acme');
+    expect(generateContentMock).toHaveBeenCalledTimes(2);
+    const secondCall = (generateContentMock.mock.calls as any[])[1]?.[0] as { model?: string };
+    expect(secondCall.model).toBe('gemini-2.5-flash');
   });
 
   it('parses JSON even if wrapped with extra text', async () => {
@@ -64,7 +90,7 @@ describe('createAiService', () => {
   });
 
   it('returns null when Gemini analysis exceeds timeout', async () => {
-    generateContentMock.mockImplementationOnce(() => new Promise(() => undefined));
+    generateContentMock.mockImplementation(() => new Promise(() => undefined));
 
     const { createAiService } = await import('../src/services/aiService.js');
     const service = createAiService('fake-key', 'gemini-flash-latest', 5);
