@@ -65,6 +65,17 @@ describe('submitJobFormUtils', () => {
     expect(mapped.message).toContain('Too many attempts');
   });
 
+  it('maps backend field payload to deterministic field guidance', () => {
+    const mapped = mapSubmissionError('Invalid submission payload', {
+      fields: ['externalLink', 'companyName', 'locationCity']
+    });
+
+    expect(mapped.fieldErrors.externalLink).toContain('valid apply URL');
+    expect(mapped.fieldErrors.companyName).toContain('required');
+    expect(mapped.fieldErrors.locationCity).toContain('required');
+    expect(mapped.message).toContain('Please complete the required fields');
+  });
+
   it('lists missing required fields in a stable priority order', () => {
     const errors = validateRequiredFields({
       formData: {},

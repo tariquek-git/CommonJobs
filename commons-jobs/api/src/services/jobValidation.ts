@@ -56,7 +56,7 @@ const baseJobSchema = z.object({
   companyWebsite: z.string().optional(),
   roleTitle: z.string().min(1).max(180),
   externalLink: z.string().min(1),
-  postedDate: z.string().datetime().optional(),
+  postedDate: z.string().max(40).optional(),
   status: statusSchema.optional(),
   sourceType: sourceTypeSchema.optional(),
   isVerified: z.boolean().optional(),
@@ -97,6 +97,14 @@ export const publicSubmissionSchema = baseJobSchema.pick({
   submitterName: true,
   submitterEmail: true,
   website: true
+}).extend({
+  companyName: z.string().min(1).max(120),
+  roleTitle: z.string().min(1).max(180),
+  externalLink: z.string().min(1),
+  locationCountry: z.string().min(1).max(120),
+  locationCity: z.string().min(1).max(120),
+  submitterName: z.string().min(1).max(120),
+  submitterEmail: z.string().email().max(200)
 });
 
 export const adminCreateJobSchema = baseJobSchema.extend({

@@ -71,6 +71,14 @@ const serializeExpiredAdminSessionCookie = (cookieName: string, secure: boolean)
   return parts.join('; ');
 };
 
+const resolvePostedDateOrNow = (postedDate?: string): string => {
+  const fallback = new Date().toISOString();
+  if (!postedDate) return fallback;
+  const parsed = new Date(postedDate).getTime();
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return new Date(parsed).toISOString();
+};
+
 export const buildApp = (
   repository: JobRepository,
   clickRepository: ClickRepository,
@@ -195,13 +203,25 @@ export const buildApp = (
     return typeof lastSeen === 'number' && now - lastSeen < clickDedupeWindow;
   };
 
-  const submissionValidationMessage = (issues: Array<{ path: PropertyKey[] }>): string => {
+  const submissionValidationResult = (issues: Array<{ path: PropertyKey[] }>): { message: string; fields: string[] } => {
     const topLevel = new Set(issues.map((issue) => String(issue.path?.[0] ?? '')));
-    if (topLevel.has('externalLink')) return 'Please provide a valid apply link (URL).';
-    if (topLevel.has('submitterEmail')) return 'Please provide a valid email address.';
-    if (topLevel.has('companyName') || topLevel.has('roleTitle')) return 'Company name and role title are required.';
-    if (topLevel.has('locationCountry') || topLevel.has('locationCity')) return 'Please provide a country and city.';
-    return 'Invalid submission payload';
+    const fields = Array.from(topLevel).filter(Boolean);
+    if (topLevel.has('externalLink')) {
+      return { message: 'Please provide a valid apply link (URL).', fields };
+    }
+    if (topLevel.has('submitterName')) {
+      return { message: 'Please provide your name.', fields };
+    }
+    if (topLevel.has('submitterEmail')) {
+      return { message: 'Please provide a valid email address.', fields };
+    }
+    if (topLevel.has('companyName') || topLevel.has('roleTitle')) {
+      return { message: 'Company name and role title are required.', fields };
+    }
+    if (topLevel.has('locationCountry') || topLevel.has('locationCity')) {
+      return { message: 'Please provide a country and city.', fields };
+    }
+    return { message: 'Invalid submission payload', fields };
   };
 
   app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
@@ -332,7 +352,8 @@ export const buildApp = (
     const parsed = publicSubmissionSchema.safeParse(normalized);
     if (!parsed.success) {
       app.log.info({ issues: parsed.error.issues }, 'Invalid job submission payload');
-      return badRequest(reply, submissionValidationMessage(parsed.error.issues));
+      const validation = submissionValidationResult(parsed.error.issues);
+      return reply.status(400).send({ error: validation.message, fields: validation.fields });
     }
 
     if (normalized.website) {
@@ -349,7 +370,7 @@ export const buildApp = (
       const created: JobPosting = {
         ...payload,
         id: crypto.randomUUID(),
-        postedDate: payload.postedDate || new Date().toISOString(),
+        postedDate: resolvePostedDateOrNow(payload.postedDate),
         clicks: 0
       };
       jobs.unshift(created);
@@ -439,7 +460,7 @@ export const buildApp = (
         companyWebsite: parsed.data.companyWebsite || '',
         roleTitle: parsed.data.roleTitle,
         externalLink,
-        postedDate: parsed.data.postedDate || new Date().toISOString(),
+        postedDate: resolvePostedDateOrNow(parsed.data.postedDate),
         status: parsed.data.status,
         sourceType: parsed.data.sourceType,
         isVerified: parsed.data.isVerified,
@@ -517,6 +538,7 @@ export const buildApp = (
         ...Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)),
         externalLink: normalized.externalLink || current.externalLink,
         companyWebsite: hasCompanyWebsite ? (normalized.companyWebsite ?? '') : current.companyWebsite,
+        postedDate: parsed.data.postedDate ? resolvePostedDateOrNow(parsed.data.postedDate) : current.postedDate,
         tags: normalized.tags || current.tags
       };
 

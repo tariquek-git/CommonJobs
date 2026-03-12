@@ -238,7 +238,13 @@ describe('SubmitJobForm', () => {
   });
 
   it('maps invalid submission payload errors to actionable guidance', async () => {
-    submitJobMock.mockRejectedValueOnce(new Error('Invalid submission payload'));
+    const { ApiClientError } = await import('../services/apiClient');
+    submitJobMock.mockRejectedValueOnce(
+      new ApiClientError('Invalid submission payload', 400, {
+        error: 'Invalid submission payload',
+        fields: ['externalLink', 'companyName']
+      })
+    );
     const SubmitJobForm = (await import('../components/SubmitJobForm')).default;
     render(<SubmitJobForm onSuccess={vi.fn()} onOpenTerms={vi.fn()} />);
 
@@ -253,7 +259,10 @@ describe('SubmitJobForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit for verification/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Some required fields are missing or invalid');
+    expect(alert.textContent).toContain('Please complete the required fields');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(/link to apply/i));
+    });
   });
 
   it('focuses the first invalid required field when submitting incomplete form', async () => {

@@ -2,6 +2,16 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 const compact = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
+const humanizeSummary = (value: string): string => {
+  const cleaned = compact(value)
+    .replace(/\bleverage\b/gi, 'use')
+    .replace(/\butilize\b/gi, 'use')
+    .replace(/\bsynerg(?:y|ize)\b/gi, 'work together')
+    .replace(/\brobust\b/gi, 'strong')
+    .replace(/\bdynamic\b/gi, 'fast-moving');
+  return cleaned.slice(0, 360);
+};
+
 const inferRemotePolicy = (text: string): string => {
   const lower = text.toLowerCase();
   if (lower.includes('hybrid')) return 'Hybrid';
@@ -151,7 +161,14 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
     try {
       const response = await withTimeout(ai.models.generateContent({
         model,
-        contents: `Extract structured job metadata and a concise summary from this posting:\n\n${description.slice(0, 8000)}`,
+        contents: [
+          'Extract structured metadata from this job post.',
+          'Write summary as a real person would explain it to a friend.',
+          'Keep summary to 2 short sentences, plain language, and avoid corporate buzzwords.',
+          'Do not use hype, marketing language, or generic filler.',
+          '',
+          description.slice(0, 8000)
+        ].join('\n'),
         config: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -175,7 +192,13 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
       }), timeoutMs);
 
       if (!response || !response.text) return null;
-      return safeJsonParse(response.text);
+      const parsed = safeJsonParse<Record<string, unknown>>(response.text);
+      if (!parsed) return null;
+      const summary = typeof parsed.summary === 'string' ? humanizeSummary(parsed.summary) : '';
+      return {
+        ...parsed,
+        summary
+      };
     } catch {
       return null;
     }

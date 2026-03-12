@@ -191,11 +191,31 @@ export const validateRequiredFields = ({
 };
 
 export const mapSubmissionError = (
-  rawMessage: string
+  rawMessage: string,
+  payload?: unknown
 ): { message: string; fieldErrors: SubmissionFieldErrors } => {
   const message = rawMessage.trim();
   const lower = message.toLowerCase();
   const nextFieldErrors: SubmissionFieldErrors = {};
+  const payloadFields =
+    payload && typeof payload === 'object' && 'fields' in payload && Array.isArray((payload as { fields?: unknown }).fields)
+      ? ((payload as { fields: unknown[] }).fields.filter((value): value is SubmissionFieldKey => submissionFieldOrder.includes(value as SubmissionFieldKey)))
+      : [];
+
+  if (payloadFields.length > 0) {
+    payloadFields.forEach((field) => {
+      if (field === 'externalLink') {
+        nextFieldErrors.externalLink = 'Enter a valid apply URL (must start with http:// or https://).';
+        return;
+      }
+      if (field === 'submitterEmail') {
+        nextFieldErrors.submitterEmail = 'Use a valid email address for submission updates.';
+        return;
+      }
+      const label = submissionFieldLabels[field];
+      nextFieldErrors[field] = `${label} is required.`;
+    });
+  }
 
   if (lower.includes('valid apply link') || lower.includes('apply link') || lower.includes('external link')) {
     nextFieldErrors.externalLink = 'Enter a valid apply URL (must start with http:// or https://).';
@@ -214,7 +234,10 @@ export const mapSubmissionError = (
 
   if (lower.includes('invalid submission payload')) {
     return {
-      message: 'Some required fields are missing or invalid. Check the highlighted fields and try again.',
+      message:
+        payloadFields.length > 0
+          ? 'Please complete the required fields highlighted below and try again.'
+          : 'Some required fields are missing or invalid. Check the highlighted fields and try again.',
       fieldErrors: nextFieldErrors
     };
   }

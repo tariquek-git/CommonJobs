@@ -7,6 +7,7 @@ import { Sparkles, Loader2, CheckCircle2, X, HelpCircle } from 'lucide-react';
 import { submitJob, updateJob, createAdminJob } from '../services/jobService';
 import { CONTACT_EMAIL } from '../siteConfig';
 import { buildFeedbackMailto } from '../utils/feedbackMailto';
+import { ApiClientError } from '../services/apiClient';
 import {
   getInitialState,
   mapSubmissionError,
@@ -416,7 +417,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		      setTimeout(() => successHeadingRef.current?.focus(), 0);
 		    } catch (err) {
 		      const message = err instanceof Error ? err.message : 'Failed to submit job. Please try again.';
-          const mapped = mapSubmissionError(message);
+          const payload = err instanceof ApiClientError ? err.payload : undefined;
+          const mapped = mapSubmissionError(message, payload);
           if (Object.keys(mapped.fieldErrors).length > 0) {
             setFieldErrors(mapped.fieldErrors);
           }

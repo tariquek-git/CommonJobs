@@ -72,4 +72,23 @@ describe('createAiService', () => {
 
     expect(result).toBeNull();
   });
+
+  it('normalizes AI summary to plain human language', async () => {
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        roleTitle: 'Staff Engineer',
+        companyName: 'Acme',
+        summary: 'You will leverage robust systems to synergize teams and utilize cross-functional workflows.'
+      })
+    });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest', 5000);
+    const result = await service.analyzeJobDescription('Acme is hiring');
+
+    expect(result?.summary).toContain('use');
+    expect(result?.summary).not.toContain('leverage');
+    expect(result?.summary).not.toContain('utilize');
+    expect(result?.summary).not.toContain('synergize');
+  });
 });

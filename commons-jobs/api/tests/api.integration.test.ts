@@ -725,6 +725,11 @@ describe('API integration', () => {
     });
 
     expect(res.statusCode).toBe(400);
+    const body = res.json() as { error: string; fields?: string[] };
+    expect(Array.isArray(body.fields)).toBe(true);
+    expect(body.fields).toContain('externalLink');
+    expect(body.fields).toContain('locationCountry');
+    expect(body.fields).toContain('locationCity');
     await app.close();
   });
 
@@ -772,6 +777,45 @@ describe('API integration', () => {
 
     expect(res.statusCode).toBe(201);
     expect((res.json() as { jobId: string }).jobId).toBeTruthy();
+    await app.close();
+  });
+
+  it('normalizes invalid postedDate to current timestamp for admin-created jobs', async () => {
+    const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/auth/admin-login',
+      payload: { username: 'admin', password: 'Tark101' }
+    });
+    expect(loginRes.statusCode).toBe(200);
+    const sessionCookie = getSessionCookie(loginRes.headers as Record<string, unknown>);
+
+    const before = Date.now();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/admin/jobs',
+      headers: { cookie: sessionCookie },
+      payload: {
+        companyName: 'Date Co',
+        roleTitle: 'Date Role',
+        externalLink: 'https://example.com/date-role',
+        sourceType: 'Aggregated',
+        status: 'active',
+        isVerified: false,
+        locationCountry: 'Canada',
+        postedDate: 'not-a-real-date'
+      }
+    });
+    const after = Date.now();
+
+    expect(createRes.statusCode).toBe(201);
+    const created = (createRes.json() as { job: JobPosting }).job;
+    const postedMs = new Date(created.postedDate).getTime();
+    expect(Number.isFinite(postedMs)).toBe(true);
+    expect(postedMs).toBeGreaterThanOrEqual(before - 1_000);
+    expect(postedMs).toBeLessThanOrEqual(after + 1_000);
+
     await app.close();
   });
 
