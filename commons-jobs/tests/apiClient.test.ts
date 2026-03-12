@@ -65,6 +65,33 @@ describe('apiClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('retries idempotent POST reads on transient failures', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: 'Service unavailable' })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ jobs: [{ id: 'post-read' }] })
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await requestJson<{ jobs: Array<{ id: string }> }>('/jobs/search', {
+      method: 'POST',
+      idempotent: true,
+      retry: 1,
+      retryDelayMs: 0,
+      body: { feedType: 'aggregated' }
+    });
+
+    expect(response.jobs[0].id).toBe('post-read');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not send JSON content-type when no body is provided', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

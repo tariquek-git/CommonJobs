@@ -25,6 +25,8 @@ type ApiRequestOptions = {
   // Retry is applied only for safe reads (GET/HEAD) and transient failures.
   retry?: number;
   retryDelayMs?: number;
+  // Mark POST-like read endpoints as idempotent to allow transient retry.
+  idempotent?: boolean;
 };
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
@@ -52,8 +54,14 @@ const extractErrorMessage = (status: number, payload: unknown): string => {
   return `Request failed (${status})`;
 };
 
-const shouldRetry = (method: string, attempt: number, maxRetries: number, errorOrStatus: unknown): boolean => {
-  if (!SAFE_METHODS.has(method)) return false;
+const shouldRetry = (
+  method: string,
+  idempotent: boolean,
+  attempt: number,
+  maxRetries: number,
+  errorOrStatus: unknown
+): boolean => {
+  if (!SAFE_METHODS.has(method) && !idempotent) return false;
   if (attempt >= maxRetries) return false;
   if (typeof errorOrStatus === 'number') return RETRYABLE_STATUS.has(errorOrStatus);
   return true; // Network errors on safe reads.
@@ -61,6 +69,7 @@ const shouldRetry = (method: string, attempt: number, maxRetries: number, errorO
 
 export const requestJson = async <T>(path: string, options: ApiRequestOptions = {}): Promise<T> => {
   const method = options.method || 'GET';
+  const idempotent = options.idempotent === true;
   const maxRetries = Math.max(0, options.retry ?? 0);
   const retryDelayMs = Math.max(0, options.retryDelayMs ?? 200);
 
@@ -85,7 +94,7 @@ export const requestJson = async <T>(path: string, options: ApiRequestOptions = 
 
       const payload = await parseJson(response);
       if (!response.ok) {
-        if (shouldRetry(method, attempt, maxRetries, response.status)) {
+        if (shouldRetry(method, idempotent, attempt, maxRetries, response.status)) {
           await delay(retryDelayMs * (attempt + 1));
           continue;
         }
@@ -97,7 +106,7 @@ export const requestJson = async <T>(path: string, options: ApiRequestOptions = 
       if (error instanceof ApiClientError) {
         throw error;
       }
-      if (shouldRetry(method, attempt, maxRetries, error)) {
+      if (shouldRetry(method, idempotent, attempt, maxRetries, error)) {
         await delay(retryDelayMs * (attempt + 1));
         continue;
       }

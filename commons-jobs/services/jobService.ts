@@ -56,6 +56,9 @@ export const getJobs = async (
 
   const data = await requestJson<Partial<JobsSearchResponse> & { jobs: JobPosting[] }>('/jobs/search', {
     method: 'POST',
+    idempotent: true,
+    retry: 1,
+    retryDelayMs: 150,
     body: {
       filters: {
         keyword: filters.keyword,
