@@ -26,8 +26,8 @@ const FilterGroup = <T extends string>({
     filterKey,
     onToggle
   }: FilterGroupProps<T>) => (
-    <div className="space-y-2">
-      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</div>
+    <div className="space-y-2.5">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">{label}</div>
       <div className="flex flex-wrap gap-2">
         {options.map(opt => {
           const isActive = selected.includes(opt);
@@ -40,15 +40,18 @@ const FilterGroup = <T extends string>({
               onClick={() => onToggle(filterKey, opt)}
               disabled={isDisabled}
               className={`
-                px-3 py-1.5 rounded-full text-xs font-bold transition-all border
+                inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-premium focus-visible:focus-ring
                 ${isActive 
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                  : `bg-white border-gray-200 ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`
+                  ? 'border-[var(--cj-accent)] bg-[#e9f8f6] text-[var(--cj-accent-strong)] shadow-[0_2px_8px_rgba(42,184,170,0.16)]' 
+                  : `bg-white ${isDisabled ? 'cursor-not-allowed border-[var(--cj-stroke-soft)] text-[#9aa6b7]' : 'border-[var(--cj-stroke-soft)] text-[var(--cj-text-secondary)] hover:border-[var(--cj-stroke-strong)] hover:bg-[#f7fafc]'}`
                 }
               `}
               aria-pressed={isActive}
             >
-              {opt} ({count})
+              <span>{opt}</span>
+              <span className={`rounded-full px-1.5 py-[1px] text-[10px] font-bold ${isActive ? 'bg-white/85 text-[var(--cj-accent-strong)]' : 'bg-[#eef3f6] text-[var(--cj-text-muted)]'}`}>
+                {count}
+              </span>
             </button>
           );
         })}
@@ -119,7 +122,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({ filters, facets, setFilters }) 
             <button 
                 type="button"
                 onClick={clearFilters}
-                className="text-xs font-bold text-gray-600 hover:text-red-700 flex items-center gap-1"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:text-[#9f3a3a] focus-visible:focus-ring"
             >
                 <X size={12} /> Clear all filters
             </button>

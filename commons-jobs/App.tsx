@@ -328,126 +328,136 @@ const App: React.FC = () => {
     
     // Browse View
     return (
-      <div className="flex flex-col md:flex-row gap-6 md:gap-10 items-start">
-        {/* Sidebar Filters */}
-        <aside className="w-full md:w-64 shrink-0 md:sticky md:top-24 self-start">
-            {/* Mobile Filter Toggle */}
-            <button 
-                type="button"
-                onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className="md:hidden w-full mb-4 flex items-center justify-between bg-white border border-gray-200 px-4 py-3 rounded-xl shadow-sm text-sm font-bold text-gray-900 transition-colors hover:bg-gray-50"
-                aria-expanded={showMobileFilters}
-                aria-controls="browse-filters-panel"
-            >
-                <div className="flex items-center gap-2">
-                    <Filter size={16} className="text-gray-500"/>
-                    <span>Filters</span>
-                    {activeFilterCount > 0 && (
-                        <span className="bg-[#2EC4B6] text-[#0B132B] text-[10px] h-5 w-5 flex items-center justify-center rounded-full font-bold">
-                            {activeFilterCount}
-                        </span>
-                    )}
-                </div>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 ${showMobileFilters ? 'rotate-180' : ''}`} />
-            </button>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-8">
+        <aside className="w-full self-start lg:sticky lg:top-24">
+          <button
+            type="button"
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className="cj-surface-elevated mb-3 flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--cj-text-primary)] md:hidden"
+            aria-expanded={showMobileFilters}
+            aria-controls="browse-filters-panel"
+          >
+            <div className="flex items-center gap-2">
+              <Filter size={16} className="text-[var(--cj-text-muted)]" />
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--cj-accent)] px-1.5 text-[10px] font-bold text-[var(--cj-accent-navy)]">
+                  {activeFilterCount}
+                </span>
+              )}
+            </div>
+            <ChevronDown size={16} className={`text-[var(--cj-text-muted)] transition-premium ${showMobileFilters ? 'rotate-180' : ''}`} />
+          </button>
 
-            {/* Filter Content */}
-            <div
-              id="browse-filters-panel"
-              className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pr-1`}
-            >
-                <div className="mb-8">
-                    <JobFilters filters={filters} facets={facets} setFilters={setFilters} />
-                </div>
-                
-	                <div className="pt-8 border-t border-gray-200">
-	                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Admin & Info</h3>
-	                    <div className="space-y-2 flex flex-col items-start">
-	                        <button type="button" onClick={() => setCurrentView('terms')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
-	                            Data, Terms & Common Sense
-	                        </button>
-	                        <button type="button" onClick={() => setCurrentView('about')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
-	                            Why, Who, & What
-	                        </button>
-	                        <button type="button" onClick={() => setCurrentView('faq')} className="text-xs font-medium text-gray-500 hover:text-[#0f766e] transition-colors text-left">
-	                            FAQ
-	                        </button>
-	                        {isAdmin ? (
-	                            <div className="flex items-center gap-3 mt-2">
-	                              <button
-	                                type="button"
-	                                onClick={() => setCurrentView('admin')}
-	                                className="text-xs font-bold text-gray-700 hover:text-[#0f766e] transition-colors"
-	                              >
-	                                Admin Dashboard
-	                              </button>
-	                              <button
-	                                type="button"
-	                                onClick={() => void handleAdminLogout()}
-	                                className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
-	                              >
-	                                Logout
-	                              </button>
-	                            </div>
-	                        ) : (
-	                            <button type="button" onClick={() => setShowAdminLogin(true)} className="text-xs font-bold text-gray-600 hover:text-gray-800 flex items-center gap-1 mt-2">
-	                                <Lock size={12} /> Admin Login
-	                            </button>
-	                        )}
-	                    </div>
-	                </div>
-	            </div>
-	        </aside>
-
-        <div className="flex-1 w-full">
-            {/* Feed Toggle */}
-            <div className="flex items-center gap-2 mb-6">
-                <button
-                    type="button"
-                    onClick={() => {
-                      setFeedType('direct');
-                      setFilters((prev) => ({ ...prev, page: 1 }));
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all border ${
-                        feedType === 'direct'
-                        ? 'bg-gray-900 text-white border-gray-900 shadow-md transform scale-105'
-                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'
-                    }`}
-                    aria-pressed={feedType === 'direct'}
-                >
-                    <Users size={16} />
-                    Community Board
-                </button>
-                <button
-                    type="button"
-                    onClick={() => {
-                      setFeedType('aggregated');
-                      setFilters((prev) => ({
-                        ...prev,
-                        page: 1,
-                        sort: prev.sort === 'most_clicked' ? 'newest' : prev.sort
-                      }));
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold transition-all border ${
-                        feedType === 'aggregated'
-                        ? 'bg-[#2EC4B6] text-[#0B132B] border-[#2EC4B6] shadow-md transform scale-105'
-                        : 'bg-white text-gray-500 border-gray-200 hover:bg-[#f5fbfb] hover:text-[#0B132B]'
-                    }`}
-                    aria-pressed={feedType === 'aggregated'}
-                >
-                    <Globe size={16} />
-                    Web Pulse 🇨🇦
-                </button>
+          <div
+            id="browse-filters-panel"
+            className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none lg:max-h-[calc(100vh-7.25rem)] lg:overflow-y-auto lg:pr-1`}
+          >
+            <div className="cj-surface-base p-4 md:p-5">
+              <JobFilters filters={filters} facets={facets} setFilters={setFilters} />
             </div>
 
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="sort-jobs" className="text-xs font-bold uppercase tracking-wide text-gray-500">
+            <div className="cj-surface-base mt-4 p-4">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">Admin & Info</h3>
+              <div className="flex flex-col items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('terms')}
+                  className="text-left text-xs font-medium text-[var(--cj-text-secondary)] transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring"
+                >
+                  Data, Terms & Common Sense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('about')}
+                  className="text-left text-xs font-medium text-[var(--cj-text-secondary)] transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring"
+                >
+                  Why, Who, & What
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('faq')}
+                  className="text-left text-xs font-medium text-[var(--cj-text-secondary)] transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring"
+                >
+                  FAQ
+                </button>
+                {isAdmin ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentView('admin')}
+                      className="text-xs font-semibold text-[var(--cj-text-primary)] transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring"
+                    >
+                      Admin Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleAdminLogout()}
+                      className="text-xs font-semibold text-[var(--cj-text-muted)] transition-premium hover:text-[var(--cj-text-secondary)] focus-visible:focus-ring"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminLogin(true)}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:text-[var(--cj-text-primary)] focus-visible:focus-ring"
+                  >
+                    <Lock size={12} />
+                    Admin Login
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-w-0">
+          <div className="mb-5 inline-flex rounded-[14px] border border-[var(--cj-stroke-soft)] bg-white p-1 shadow-[var(--cj-shadow-soft)]">
+            <button
+              type="button"
+              onClick={() => {
+                setFeedType('direct');
+                setFilters((prev) => ({ ...prev, page: 1 }));
+              }}
+              className={`inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm font-semibold transition-premium focus-visible:focus-ring ${
+                feedType === 'direct' ? 'bg-[var(--cj-accent-navy)] text-white' : 'text-[var(--cj-text-secondary)] hover:bg-[#f5f8fb]'
+              }`}
+              aria-pressed={feedType === 'direct'}
+            >
+              <Users size={16} />
+              Community Board
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFeedType('aggregated');
+                setFilters((prev) => ({
+                  ...prev,
+                  page: 1,
+                  sort: prev.sort === 'most_clicked' ? 'newest' : prev.sort
+                }));
+              }}
+              className={`inline-flex items-center gap-2 rounded-[10px] px-4 py-2 text-sm font-semibold transition-premium focus-visible:focus-ring ${
+                feedType === 'aggregated' ? 'bg-[var(--cj-accent)] text-[var(--cj-accent-navy)]' : 'text-[var(--cj-text-secondary)] hover:bg-[#f5f8fb]'
+              }`}
+              aria-pressed={feedType === 'aggregated'}
+            >
+              <Globe size={16} />
+              Web Pulse 🇨🇦
+            </button>
+          </div>
+
+          <div className="sticky top-[5.5rem] z-20 mb-5 rounded-[16px] border border-[var(--cj-stroke-soft)] bg-white/90 px-4 py-3 backdrop-blur-md shadow-[0_8px_18px_rgba(11,21,39,0.05)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <label htmlFor="sort-jobs" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
                   Sort
                 </label>
                 <select
                   id="sort-jobs"
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                  className="rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white px-3 py-2 text-sm font-medium text-[var(--cj-text-secondary)] focus-visible:focus-ring"
                   value={filters.sort}
                   onChange={(event) =>
                     setFilters((prev) => ({ ...prev, sort: event.target.value as JobSortOption, page: 1 }))
@@ -459,163 +469,166 @@ const App: React.FC = () => {
                   </option>
                   <option value="company_az">Company A-Z</option>
                 </select>
-                {activeFilterPills.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {activeFilterPills.map((pill) => (
-                      <button
-                        key={pill.key}
-                        type="button"
-                        onClick={pill.onRemove}
-                        className="inline-flex items-center gap-1 rounded-full border border-[#cdece8] bg-[#f4fbfa] px-2.5 py-1 text-xs font-semibold text-[#0b5f58]"
-                      >
-                        {pill.label}
-                        <X size={12} />
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
               <a
                 href={feedbackHref}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-300 hover:text-gray-900"
+                className="inline-flex items-center gap-2 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white px-3 py-2 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-stroke-strong)] hover:text-[var(--cj-text-primary)] focus-visible:focus-ring"
               >
                 <MessageSquare size={14} />
                 Send feedback
               </a>
             </div>
+            {activeFilterPills.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {activeFilterPills.map((pill) => (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={pill.onRemove}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#cdece8] bg-[#f4fbfa] px-2.5 py-1 text-xs font-semibold text-[#0b5f58] transition-premium focus-visible:focus-ring"
+                  >
+                    {pill.label}
+                    <X size={12} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-            {/* Feed Info / Disclaimer */}
-            {feedType === 'aggregated' && (
-                <div className="mb-6 p-4 bg-[#e8f9f6] border border-[#cdece8] rounded-xl text-sm text-[#0f5f59] flex items-start gap-3 animate-fade-in">
-                    <Globe size={18} className="mt-0.5 shrink-0" />
-                    <div>
-                        <p className="font-bold">Automated Canadian Fintech Feed</p>
-                        <p className="opacity-80">This feed pulls public listings from major Canadian banks and fintechs posted in the last 12 days. These are not manually verified by the Commons.</p>
-                        <p className="mt-1 text-xs font-semibold opacity-90">Policy: Canada only, max 12 days, max 50 jobs, max 5 active roles per company.</p>
-                        {companyCapApplied && (
-                          <p className="mt-1 text-xs opacity-80">Repeated companies were trimmed in this result set.</p>
-                        )}
-                        {aggregatedPolicySummary?.policy && (
-                          <p className="mt-1 text-xs opacity-80">
-                            Policy filter kept {aggregatedPolicySummary.aggregatedCounts.afterPolicy} of {aggregatedPolicySummary.aggregatedCounts.beforePolicy} roles in this search.
-                          </p>
-                        )}
-                    </div>
-                </div>
+          {feedType === 'aggregated' && (
+            <div className="cj-surface-tinted animate-fade-in mb-6 flex items-start gap-3 p-4 text-sm text-[#0f5f59]">
+              <Globe size={18} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-[var(--cj-text-primary)]">Automated Canadian Fintech Feed</p>
+                <p className="text-[var(--cj-text-secondary)]">
+                  This feed pulls public listings from major Canadian banks and fintechs posted in the last 12 days. These are not manually verified by the Commons.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[var(--cj-text-secondary)]">
+                  Policy: Canada only, max 12 days, max 50 jobs, max 5 active roles per company.
+                </p>
+                {companyCapApplied && <p className="mt-1 text-xs text-[var(--cj-text-secondary)]">Repeated companies were trimmed in this result set.</p>}
+                {aggregatedPolicySummary?.policy && (
+                  <p className="mt-1 text-xs text-[var(--cj-text-secondary)]">
+                    Policy filter kept {aggregatedPolicySummary.aggregatedCounts.afterPolicy} of {aggregatedPolicySummary.aggregatedCounts.beforePolicy} roles in this search.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <section className="cj-surface-tinted mb-6 p-4 md:p-5">
+            <button
+              type="button"
+              onClick={toggleFounderNote}
+              className="mb-3 inline-flex w-full items-center justify-between rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white px-3 py-2 text-left text-sm font-semibold text-[var(--cj-text-primary)] transition-premium focus-visible:focus-ring"
+              aria-expanded={founderNoteExpanded}
+            >
+              <span>Why I built Commons Jobs</span>
+              <ChevronDown size={16} className={`transition-premium ${founderNoteExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {founderNoteExpanded && (
+              <p className="mb-4 max-w-[72ch] text-sm leading-relaxed text-[var(--cj-text-secondary)]">
+                Hi, it&apos;s Tarique 👋 Job boards were built to solve a real problem. They made finding work easier for both employees and employers. They did that really well. So well that now they&apos;re noisy. Everyone&apos;s on them, everything&apos;s on them, and signal gets buried. I noticed something else. Word of mouth works in fintech. The community is tight. But it doesn&apos;t scale beyond who you personally know. I thought about what AI and verticalization could do here. Slice things differently. Build infrastructure specific to a community instead of generic. That&apos;s what this is.
+              </p>
             )}
 
-            <section className="mb-6 rounded-xl border border-[#cdece8] bg-[#f6fcfb] p-4 text-sm text-[#0f3f3a]">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="cj-surface-elevated p-3.5">
+                <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-primary)]">
+                  <ShieldCheck size={13} />
+                  Community Board
+                </p>
+                <p className="text-xs leading-relaxed text-[var(--cj-text-secondary)]">
+                  People in the industry submit roles directly to me. If you know someone hiring, send me the role and I&apos;ll get it posted.
+                </p>
+              </div>
+              <div className="cj-surface-elevated p-3.5">
+                <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-primary)]">
+                  <Globe size={13} />
+                  Web Pulse
+                </p>
+                <p className="text-xs leading-relaxed text-[var(--cj-text-secondary)]">Raw market feed curated from the internet. Canada only, last 12 days.</p>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white/80 px-3 py-2 text-xs leading-relaxed text-[var(--cj-text-secondary)]">
+              <span className="font-semibold text-[var(--cj-text-primary)]">Please note:</span> This is pre-alpha. I&apos;m learning as I build. If something doesn&apos;t work or you have feedback, let me know. Seriously.
+            </div>
+          </section>
+
+          {loading ? (
+            <div className="jobs-grid grid gap-4 xl:gap-5" role="status" aria-live="polite">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={`skeleton-${idx}`} className="cj-surface-elevated p-6">
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className="skeleton-shimmer h-12 w-12 rounded-[12px]" />
+                    <div className="skeleton-shimmer h-6 w-24 rounded-full" />
+                  </div>
+                  <div className="skeleton-shimmer mb-2 h-5 w-4/5 rounded-md" />
+                  <div className="skeleton-shimmer mb-4 h-4 w-1/2 rounded-md" />
+                  <div className="skeleton-shimmer mb-4 h-4 w-3/4 rounded-md" />
+                  <div className="skeleton-shimmer h-24 rounded-[12px]" />
+                </div>
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="rounded-[16px] border border-red-200 bg-red-50 p-8 text-center text-red-700" role="alert">
+              <p className="mb-3 font-semibold">{loadError}</p>
               <button
                 type="button"
-                onClick={toggleFounderNote}
-                className="mb-2 inline-flex w-full items-center justify-between rounded-lg border border-[#bee6e2] bg-white px-3 py-2 text-left text-sm font-bold text-[#0B132B]"
-                aria-expanded={founderNoteExpanded}
+                onClick={() => setReloadNonce((prev) => prev + 1)}
+                className="rounded-[12px] bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-premium hover:bg-red-700 focus-visible:focus-ring"
               >
-                <span>Why I built Commons Jobs</span>
-                <ChevronDown size={16} className={`transition-transform ${founderNoteExpanded ? 'rotate-180' : ''}`} />
+                Retry
               </button>
-
-              {founderNoteExpanded && (
-                <p className="mb-3 text-sm leading-relaxed text-[#19443f]">
-                  Hi, it&apos;s Tarique 👋 Job boards were built to solve a real problem. They made finding work easier for both employees and employers. They did that really well. So well that now they&apos;re noisy. Everyone&apos;s on them, everything&apos;s on them, and signal gets buried. I noticed something else. Word of mouth works in fintech. The community is tight. But it doesn&apos;t scale beyond who you personally know. I thought about what AI and verticalization could do here. Slice things differently. Build infrastructure specific to a community instead of generic. That&apos;s what this is.
-                </p>
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="rounded-[16px] border border-dashed border-[var(--cj-stroke-strong)] bg-[var(--cj-surface-base)] px-6 py-14 text-center text-[var(--cj-text-muted)]">
+              No {feedType === 'aggregated' ? 'Canadian ' : ''}opportunities found matching your filters.
+            </div>
+          ) : (
+            <>
+              <div className="jobs-grid grid gap-4 xl:gap-5 animate-slide-up" aria-live="polite" aria-busy={loading}>
+                {jobs.map((job) => (
+                  <JobCard key={job.id} job={job} onSelect={handleSelectJob} />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="cj-surface-elevated mt-6 flex items-center justify-between px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                    disabled={filters.page <= 1}
+                    className="rounded-[12px] border border-[var(--cj-stroke-soft)] px-3 py-1.5 text-sm font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-stroke-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <div className="text-sm text-[var(--cj-text-secondary)]">
+                    Page {filters.page} of {totalPages} · {totalJobs} roles
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
+                    disabled={filters.page >= totalPages}
+                    className="rounded-[12px] border border-[var(--cj-stroke-soft)] px-3 py-1.5 text-sm font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-stroke-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
               )}
-
-              <div className="grid gap-2 md:grid-cols-2">
-                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-3">
-                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
-                    <ShieldCheck size={13} />
-                    Community Board
-                  </p>
-                  <p className="text-xs text-[#245a55]">
-                    People in the industry submit roles directly to me. If you know someone hiring, send me the role and I&apos;ll get it posted.
-                  </p>
-                </div>
-                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-3">
-                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
-                    <Globe size={13} />
-                    Web Pulse
-                  </p>
-                  <p className="text-xs text-[#245a55]">Raw market feed curated from the internet. Canada only, last 12 days.</p>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-lg border border-[#d7efec] bg-[#eefaf8] px-3 py-2 text-xs text-[#245a55]">
-                <span className="font-bold text-[#0B132B]">Please note:</span> This is pre-alpha. I&apos;m learning as I build. If something doesn&apos;t work or you have feedback, let me know. Seriously.
-              </div>
-            </section>
-
-            {/* Feed */}
-            {loading ? (
-                <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3" role="status" aria-live="polite">
-                     <Loader2 className="animate-spin text-gray-300" size={32} />
-                     <span>Scanning {feedType === 'aggregated' ? 'external sources' : 'database'}...</span>
-                </div>
-            ) : loadError ? (
-                <div className="py-20 text-center rounded-xl border border-red-200 bg-red-50 text-red-700" role="alert">
-                    <p className="font-semibold mb-3">{loadError}</p>
-                    <button
-                      type="button"
-                      onClick={() => setReloadNonce((prev) => prev + 1)}
-                      className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
-                    >
-                      Retry
-                    </button>
-                </div>
-            ) : (
-                <>
-                    {jobs.length === 0 ? (
-                        <div className="py-20 text-center text-gray-400 border border-dashed border-gray-300 rounded-xl bg-gray-50/50">
-                            No {feedType === 'aggregated' ? 'Canadian' : ''} opportunities found matching your filters.
-                        </div>
-                    ) : (
-                        <>
-                          <div className="jobs-grid grid gap-4 xl:gap-5 animate-slide-up" aria-live="polite" aria-busy={loading}>
-                              {jobs.map(job => (
-                                  <JobCard 
-                                      key={job.id} 
-                                      job={job} 
-                                      onSelect={handleSelectJob}
-                                  />
-                              ))}
-                          </div>
-                          {totalPages > 1 && (
-                            <div className="mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-                              <button
-                                type="button"
-                                onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-                                disabled={filters.page <= 1}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                Previous
-                              </button>
-                              <div className="text-sm text-gray-600">
-                                Page {filters.page} of {totalPages} · {totalJobs} roles
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setFilters((prev) => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
-                                disabled={filters.page >= totalPages}
-                                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                Next
-                              </button>
-                            </div>
-                          )}
-                        </>
-                    )}
-                </>
-            )}
-        </div>
+            </>
+          )}
+        </section>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen font-sans bg-gray-50 text-gray-900 flex flex-col">
+    <div className="flex min-h-screen flex-col font-sans text-[var(--cj-text-primary)]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[90] focus:bg-white focus:text-gray-900 focus:px-3 focus:py-2 focus:rounded-md focus:shadow"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[90] focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-[var(--cj-text-primary)] focus:shadow"
       >
         Skip to main content
       </a>
@@ -640,15 +653,15 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4" onClick={() => setShowAdminLogin(false)}>
             <div
                 ref={adminModalRef}
-                className="bg-white rounded-lg shadow-xl p-8 w-full max-w-sm"
+                className="w-full max-w-sm rounded-[16px] border border-[var(--cj-stroke-soft)] bg-white p-8 shadow-[var(--cj-shadow-elevated)]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="admin-login-title"
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-6">
-                    <h3 id="admin-login-title" className="text-lg font-bold text-gray-900">Admin Access</h3>
-                    <button type="button" onClick={() => setShowAdminLogin(false)} className="text-gray-400 hover:text-gray-600" aria-label="Close admin login dialog">
+                    <h3 id="admin-login-title" className="text-lg font-semibold text-[var(--cj-text-primary)]">Admin Access</h3>
+                    <button type="button" onClick={() => setShowAdminLogin(false)} className="rounded-full p-1 text-[var(--cj-text-muted)] transition-premium hover:text-[var(--cj-text-secondary)] focus-visible:focus-ring" aria-label="Close admin login dialog">
                         <ChevronDown className="rotate-180" size={20} />
                     </button>
                 </div>
@@ -658,7 +671,7 @@ const App: React.FC = () => {
                         id="admin-username"
                         type="text" 
                         placeholder="Username" 
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-3 focus:ring-1 focus:ring-[#2EC4B6] outline-none"
+                        className="mb-3 w-full rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white p-3 text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring"
                         value={adminUsername}
                         onChange={e => setAdminUsername(e.target.value)}
                         autoComplete="username"
@@ -670,14 +683,14 @@ const App: React.FC = () => {
                         id="admin-password"
                         type="password" 
                         placeholder="Password" 
-                        className="w-full p-3 bg-white border border-gray-300 rounded-lg mb-4 focus:ring-1 focus:ring-[#2EC4B6] outline-none"
+                        className="mb-4 w-full rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white p-3 text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring"
                         value={adminPassword}
                         onChange={e => setAdminPassword(e.target.value)}
                         autoComplete="current-password"
                         required
                     />
-                    {loginError && <p className="text-red-600 text-xs mb-4" role="alert">{loginError}</p>}
-                    <button type="submit" className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold text-sm hover:bg-gray-800">
+                    {loginError && <p className="mb-4 text-xs text-red-600" role="alert">{loginError}</p>}
+                    <button type="submit" className="w-full rounded-[12px] bg-[var(--cj-accent-navy)] py-3 text-sm font-semibold text-white transition-premium hover:opacity-95 focus-visible:focus-ring">
                         Login
                     </button>
                 </form>
@@ -685,11 +698,11 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main id="main-content" className="flex-grow max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+      <main id="main-content" className="w-full max-w-[1600px] flex-grow px-4 py-10 sm:px-6 lg:mx-auto lg:px-8">
         <Suspense
           fallback={
-            <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3" role="status" aria-live="polite">
-              <Loader2 className="animate-spin text-gray-300" size={32} />
+            <div className="flex flex-col items-center gap-3 py-20 text-center text-[var(--cj-text-muted)]" role="status" aria-live="polite">
+              <Loader2 className="animate-spin text-[#9fb0be]" size={32} />
               <span>Loading…</span>
             </div>
           }
@@ -698,42 +711,42 @@ const App: React.FC = () => {
         </Suspense>
       </main>
 
-      <footer className="border-t border-gray-200 py-12 mt-16 bg-white">
+      <footer className="mt-16 border-t border-[var(--cj-stroke-soft)] bg-white py-12">
         <div className="max-w-[1600px] mx-auto px-4 text-center space-y-6">
-          <div className="flex items-center justify-center gap-3 text-[#0B132B] font-bold text-lg tracking-tight transition-all duration-500">
-             <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B132B] shadow-[0_8px_20px_rgba(11,19,43,0.24)]">
-               <Hexagon size={19} strokeWidth={2.3} className="text-[#2EC4B6]" />
-               <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-[#2EC4B6] border border-white" />
+          <div className="flex items-center justify-center gap-3 text-lg font-semibold tracking-tight text-[var(--cj-accent-navy)]">
+             <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--cj-accent-navy)] shadow-[0_8px_20px_rgba(11,19,43,0.24)]">
+               <Hexagon size={19} strokeWidth={2.3} className="text-[var(--cj-accent)]" />
+               <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full border border-white bg-[var(--cj-accent)]" />
              </span>
              Commons Jobs
           </div>
-          <p className="text-gray-500 text-sm">Curated opportunities for the next generation of finance.</p>
+          <p className="text-sm text-[var(--cj-text-secondary)]">Curated opportunities for the next generation of finance.</p>
           
-          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-500">
-             <button type="button" onClick={() => setCurrentView('terms')} className="hover:text-[#0f766e] transition-colors">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-[var(--cj-text-secondary)]">
+             <button type="button" onClick={() => setCurrentView('terms')} className="transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring">
                 Data, Terms & Common Sense
             </button>
-            <button type="button" onClick={() => setCurrentView('about')} className="hover:text-[#0f766e] transition-colors">
+            <button type="button" onClick={() => setCurrentView('about')} className="transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring">
                 Why, Who, & What
             </button>
-            <button type="button" onClick={() => setCurrentView('faq')} className="hover:text-[#0f766e] transition-colors">
+            <button type="button" onClick={() => setCurrentView('faq')} className="transition-premium hover:text-[var(--cj-accent-strong)] focus-visible:focus-ring">
                 FAQ
             </button>
           </div>
 
 		          <div className="pt-4 max-w-xl mx-auto">
-		             <p className="text-xs text-gray-500">
+		             <p className="text-xs text-[var(--cj-text-secondary)]">
 		                Email{' '}
 		                <a
 		                  href={`mailto:${CONTACT_EMAIL}`}
-		                  className="text-[#0f766e] underline underline-offset-2 hover:text-[#0a5a54]"
+		                  className="text-[var(--cj-accent-strong)] underline underline-offset-2 transition-premium hover:opacity-80 focus-visible:focus-ring"
 		                >
 		                  {CONTACT_EMAIL}
 		                </a>{' '}
 		                for edits or takedowns.{' '}
 		                <a
 		                  href={feedbackHref}
-		                  className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
+		                  className="text-[var(--cj-text-primary)] underline underline-offset-2 transition-premium hover:text-[var(--cj-accent-navy)] focus-visible:focus-ring"
 		                >
 		                  Send beta feedback
 		                </a>

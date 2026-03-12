@@ -3,10 +3,60 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --cj-bg-start: #f4f7fa;
+    --cj-bg-end: #eef3f6;
+    --cj-surface-base: #f8fafc;
+    --cj-surface-elevated: #ffffff;
+    --cj-surface-tinted: #eef8f7;
+    --cj-stroke-soft: #dce5ea;
+    --cj-stroke-strong: #c8d6de;
+    --cj-text-primary: #0b1527;
+    --cj-text-secondary: #4d5e72;
+    --cj-text-muted: #6c7a8f;
+    --cj-accent: #2ab8aa;
+    --cj-accent-strong: #0f766e;
+    --cj-accent-navy: #0b132b;
+    --cj-radius-12: 12px;
+    --cj-radius-16: 16px;
+    --cj-radius-20: 20px;
+    --cj-shadow-soft: 0 8px 20px rgba(11, 21, 39, 0.06);
+    --cj-shadow-elevated: 0 16px 34px rgba(11, 21, 39, 0.08);
+  }
+
+  * {
+    border-color: var(--cj-stroke-soft);
+  }
+
   body {
-    font-family: 'Inter', system-ui, sans-serif;
-    background: linear-gradient(180deg, #f8fbfc 0%, #edf4f4 100%);
-    color: #0b132b;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, system-ui, sans-serif;
+    background:
+      radial-gradient(circle at top right, #f7fbff 0%, transparent 42%),
+      linear-gradient(180deg, var(--cj-bg-start) 0%, var(--cj-bg-end) 100%);
+    color: var(--cj-text-primary);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .cj-surface-base {
+    background: var(--cj-surface-base);
+    border: 1px solid var(--cj-stroke-soft);
+    border-radius: var(--cj-radius-16);
+  }
+
+  .cj-surface-elevated {
+    background: var(--cj-surface-elevated);
+    border: 1px solid var(--cj-stroke-soft);
+    border-radius: var(--cj-radius-16);
+    box-shadow: var(--cj-shadow-soft);
+  }
+
+  .cj-surface-tinted {
+    background: var(--cj-surface-tinted);
+    border: 1px solid var(--cj-stroke-soft);
+    border-radius: var(--cj-radius-16);
   }
 }
 
@@ -15,9 +65,15 @@
     grid-template-columns: 1fr;
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .jobs-grid {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .jobs-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 
@@ -26,6 +82,28 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
+  }
+
+  .line-clamp-4 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+  }
+
+  .transition-premium {
+    transition: all 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .focus-ring {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(42, 184, 170, 0.34);
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, #edf2f5 8%, #f8fbfd 20%, #edf2f5 32%);
+    background-size: 300% 100%;
+    animation: shimmer 1.2s ease-in-out infinite;
   }
 
   .scrollbar-thin {
@@ -44,5 +122,42 @@
 
   .scrollbar-thumb-gray-200::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 160ms ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: 0 0;
+    }
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    0% {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 }

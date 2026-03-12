@@ -9,22 +9,22 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur border-b border-[#d9e5e6]">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--cj-stroke-soft)] bg-white/88 backdrop-blur-xl">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         <button
           type="button"
-          className="flex items-center gap-3 cursor-pointer group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2EC4B6] focus-visible:ring-offset-2"
+          className="group flex items-center gap-3 rounded-xl transition-premium focus-visible:focus-ring"
           onClick={() => setCurrentView('browse')}
         >
-          <div className="relative w-12 h-12 rounded-xl bg-[#0B132B] border border-[#1e2c4a] shadow-[0_10px_25px_rgba(11,19,43,0.28)] flex items-center justify-center transition-transform group-hover:scale-105">
-             <Hexagon size={26} strokeWidth={2.3} className="text-[#2EC4B6]" />
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#1f2d48] bg-[var(--cj-accent-navy)] shadow-[0_10px_24px_rgba(11,19,43,0.24)]">
+             <Hexagon size={24} strokeWidth={2.3} className="text-[var(--cj-accent)]" />
              <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-[#2EC4B6] border-2 border-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-bold text-[#0B132B] tracking-tight leading-none">
+            <span className="text-[1.36rem] font-semibold leading-none tracking-[-0.01em] text-[var(--cj-text-primary)]">
                 Commons Jobs
             </span>
-            <span className="text-[11px] font-semibold text-[#4b5a77] uppercase tracking-wider">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-secondary)]">
                 By Fintech Commons
             </span>
           </div>
@@ -34,10 +34,10 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
           <button
             type="button"
             onClick={() => setCurrentView('browse')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+            className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-premium focus-visible:focus-ring ${
               currentView === 'browse' 
-                ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-[0_6px_16px_rgba(11,19,43,0.28)]'
-                : 'bg-white text-[#0B132B] border-[#d8e4e6] hover:border-[#9adfd8] hover:bg-[#f5fbfb]'
+                ? 'border-[var(--cj-accent-navy)] bg-[var(--cj-accent-navy)] text-white shadow-[0_6px_16px_rgba(11,19,43,0.2)]'
+                : 'border-[var(--cj-stroke-soft)] bg-white text-[var(--cj-text-primary)] hover:border-[var(--cj-stroke-strong)]'
             }`}
           >
             Browse
@@ -46,13 +46,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
           <button
             type="button"
             onClick={() => setCurrentView('submit')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all border ${
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-premium focus-visible:focus-ring ${
               currentView === 'submit' 
-                ? 'bg-[#2EC4B6] text-[#0B132B] border-[#2EC4B6] shadow-[0_8px_20px_rgba(46,196,182,0.3)]'
-                : 'bg-white text-[#0B132B] border-[#d8e4e6] hover:border-[#9adfd8] hover:bg-[#f5fbfb]'
+                ? 'border-[var(--cj-accent)] bg-[var(--cj-accent)] text-[var(--cj-accent-navy)] shadow-[0_8px_20px_rgba(42,184,170,0.24)]'
+                : 'border-[var(--cj-stroke-soft)] bg-white text-[var(--cj-text-primary)] hover:border-[var(--cj-stroke-strong)]'
             }`}
           >
-            <Plus size={16} strokeWidth={3} className={currentView === 'submit' ? 'text-[#0B132B]' : 'text-[#0f766e]'} />
+            <Plus size={16} strokeWidth={2.8} className={currentView === 'submit' ? 'text-[var(--cj-accent-navy)]' : 'text-[var(--cj-accent-strong)]'} />
             <span>Post Role</span>
           </button>
         </div>
