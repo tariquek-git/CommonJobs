@@ -64,7 +64,57 @@ describe('createAiService', () => {
     const service = createAiService('fake-key', 'gemini-flash-latest');
     const result = await service.parseSearchQuery('remote backend');
 
-    expect(result).toEqual({ keyword: 'backend', remotePolicies: ['Remote'] });
+    expect(result).toEqual({
+      keyword: 'backend',
+      remotePolicies: ['Remote'],
+      employmentTypes: [],
+      seniorityLevels: [],
+      dateRange: 'all'
+    });
+  });
+
+  it('normalizes nested filters payload from AI response', async () => {
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        filters: {
+          keyword: 'risk engineer',
+          remotePolicies: ['hybrid', 'remote'],
+          employmentTypes: ['fulltime', 'contract'],
+          seniorityLevels: ['staff', 'senior'],
+          dateRange: '7d'
+        }
+      })
+    });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest');
+    const result = await service.parseSearchQuery('risk engineer hybrid remote');
+
+    expect(result).toEqual({
+      keyword: 'risk engineer',
+      remotePolicies: ['Hybrid', 'Remote'],
+      employmentTypes: ['Full-time', 'Contract'],
+      seniorityLevels: ['Lead', 'Senior'],
+      dateRange: '7d'
+    });
+  });
+
+  it('reuses cached parse-search result for identical query', async () => {
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        keyword: 'backend',
+        remotePolicies: ['Remote']
+      })
+    });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest');
+
+    const first = await service.parseSearchQuery('remote backend');
+    const second = await service.parseSearchQuery('remote backend');
+
+    expect(first).toEqual(second);
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
   });
 
   it('builds heuristic job analysis from plain text', async () => {

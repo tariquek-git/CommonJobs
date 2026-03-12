@@ -148,10 +148,112 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
   return Promise.race([promise, timeoutPromise]);
 };
 
+const SEARCH_DATE_RANGES = new Set(['all', '24h', '7d', '30d']);
+const SEARCH_REMOTE_POLICIES = new Set(['Onsite', 'Hybrid', 'Remote']);
+const SEARCH_EMPLOYMENT_TYPES = new Set(['Full-time', 'Contract', 'Internship']);
+const SEARCH_SENIORITY_LEVELS = new Set(['Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive']);
+const PARSE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const normalizeSearchEnumArray = (
+  value: unknown,
+  allowed: Set<string>,
+  aliases?: Record<string, string>
+): string[] => {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string') continue;
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const normalizedAlias = aliases?.[trimmed.toLowerCase()] ?? trimmed;
+    if (allowed.has(normalizedAlias) && !out.includes(normalizedAlias)) {
+      out.push(normalizedAlias);
+    }
+  }
+  return out;
+};
+
+const extractResponseText = (response: unknown): string => {
+  if (!response || typeof response !== 'object') return '';
+
+  const textValue = (response as { text?: unknown }).text;
+  if (typeof textValue === 'string' && textValue.trim()) {
+    return textValue;
+  }
+
+  const candidates = (response as { candidates?: unknown }).candidates;
+  if (!Array.isArray(candidates)) return '';
+
+  const chunks: string[] = [];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const content = (candidate as { content?: unknown }).content;
+    if (!content || typeof content !== 'object') continue;
+    const parts = (content as { parts?: unknown }).parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
+      if (!part || typeof part !== 'object') continue;
+      const partText = (part as { text?: unknown }).text;
+      if (typeof partText === 'string' && partText.trim()) {
+        chunks.push(partText);
+      }
+    }
+  }
+  return chunks.join('\n');
+};
+
+const normalizeSearchParseResult = (raw: Record<string, unknown>, originalQuery: string) => {
+  const source =
+    raw.filters && typeof raw.filters === 'object'
+      ? (raw.filters as Record<string, unknown>)
+      : raw;
+
+  const keyword = typeof source.keyword === 'string' && source.keyword.trim() ? source.keyword.trim() : compact(originalQuery);
+  const dateRangeRaw = typeof source.dateRange === 'string' ? source.dateRange.trim() : 'all';
+  const dateRange = SEARCH_DATE_RANGES.has(dateRangeRaw) ? dateRangeRaw : 'all';
+
+  const remotePolicies = normalizeSearchEnumArray(source.remotePolicies, SEARCH_REMOTE_POLICIES, {
+    onsite: 'Onsite',
+    'on-site': 'Onsite',
+    'on site': 'Onsite',
+    hybrid: 'Hybrid',
+    remote: 'Remote'
+  });
+  const employmentTypes = normalizeSearchEnumArray(source.employmentTypes, SEARCH_EMPLOYMENT_TYPES, {
+    fulltime: 'Full-time',
+    'full-time': 'Full-time',
+    contract: 'Contract',
+    internship: 'Internship',
+    intern: 'Internship'
+  });
+  const seniorityLevels = normalizeSearchEnumArray(source.seniorityLevels, SEARCH_SENIORITY_LEVELS, {
+    junior: 'Junior',
+    mid: 'Mid-Level',
+    'mid-level': 'Mid-Level',
+    intermediate: 'Mid-Level',
+    senior: 'Senior',
+    lead: 'Lead',
+    staff: 'Lead',
+    principal: 'Lead',
+    executive: 'Executive',
+    director: 'Executive',
+    vp: 'Executive'
+  });
+
+  return {
+    keyword,
+    remotePolicies,
+    employmentTypes,
+    seniorityLevels,
+    dateRange
+  };
+};
+
 export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', timeoutMs = 8000) => {
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
   const fallbackModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
   const candidateModels = [model, ...fallbackModels].filter((value, index, list) => !!value && list.indexOf(value) === index);
+  const parseSearchCache = new Map<string, { at: number; value: Record<string, unknown> }>();
 
   const safeJsonParse = <T>(text: string): T | null => {
     try {
@@ -173,7 +275,7 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
 
   const generateJson = async (
     contents: string,
-    responseSchema: Record<string, unknown>
+    responseSchema?: Record<string, unknown>
   ): Promise<Record<string, unknown> | null> => {
     if (!ai) return null;
 
@@ -181,23 +283,28 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
 
     for (const candidateModel of candidateModels) {
       try {
+        const config: Record<string, unknown> = {
+          responseMimeType: 'application/json'
+        };
+        if (responseSchema) {
+          config.responseSchema = responseSchema;
+        }
+
         const response = await withTimeout(
           ai.models.generateContent({
             model: candidateModel,
             contents,
-            config: {
-              responseMimeType: 'application/json',
-              responseSchema
-            }
+            config
           }),
           timeoutMs
         );
 
-        if (!response || !response.text) {
+        const responseText = extractResponseText(response);
+        if (!responseText) {
           continue;
         }
 
-        const parsed = safeJsonParse<Record<string, unknown>>(response.text);
+        const parsed = safeJsonParse<Record<string, unknown>>(responseText);
         if (parsed) {
           return parsed;
         }
@@ -256,8 +363,13 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
 
   const parseSearchQuery = async (query: string) => {
     if (!ai || !query.trim()) return null;
+    const normalizedQuery = compact(query).toLowerCase();
+    const cached = parseSearchCache.get(normalizedQuery);
+    if (cached && Date.now() - cached.at < PARSE_CACHE_TTL_MS) {
+      return cached.value;
+    }
 
-    return generateJson(
+    const prompt = [
       [
         'Translate this job search query into filter JSON.',
         'Return JSON only (no markdown).',
@@ -266,20 +378,33 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
         '- remotePolicies: ["Onsite" | "Hybrid" | "Remote"]',
         '- employmentTypes: ["Full-time" | "Contract" | "Internship"]',
         '- seniorityLevels: ["Junior" | "Mid-Level" | "Senior" | "Lead" | "Executive"]',
+        'If a value is unknown, return an empty array and dateRange "all".',
+        'Never include extra keys.',
         '',
         `Query: ${query}`
       ].join('\n'),
-      {
-        type: Type.OBJECT,
-        properties: {
-          keyword: { type: Type.STRING },
-          remotePolicies: { type: Type.ARRAY, items: { type: Type.STRING } },
-          employmentTypes: { type: Type.ARRAY, items: { type: Type.STRING } },
-          seniorityLevels: { type: Type.ARRAY, items: { type: Type.STRING } },
-          dateRange: { type: Type.STRING }
-        }
+    ];
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        keyword: { type: Type.STRING },
+        remotePolicies: { type: Type.ARRAY, items: { type: Type.STRING } },
+        employmentTypes: { type: Type.ARRAY, items: { type: Type.STRING } },
+        seniorityLevels: { type: Type.ARRAY, items: { type: Type.STRING } },
+        dateRange: { type: Type.STRING }
       }
-    );
+    };
+
+    let parsed = await generateJson(prompt.join('\n'), schema);
+    if (!parsed) {
+      // Retry without schema because some model/runtime combinations intermittently drop schema-formatted JSON.
+      parsed = await generateJson(prompt.join('\n'));
+    }
+    if (!parsed) return null;
+
+    const normalized = normalizeSearchParseResult(parsed, query);
+    parseSearchCache.set(normalizedQuery, { at: Date.now(), value: normalized });
+    return normalized;
   };
 
   return { analyzeJobDescription, parseSearchQuery };
