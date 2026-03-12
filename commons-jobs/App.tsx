@@ -23,6 +23,7 @@ const DEFAULT_FACETS: JobSearchFacets = {
   employmentTypes: { 'Full-time': 0, Contract: 0, Internship: 0 },
   seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
 };
+const FOUNDER_NOTE_COLLAPSED_KEY = 'commons_jobs_founder_note_collapsed_v1';
 
 type AggregatedPolicySummary = {
   aggregatedPolicyApplied: boolean;
@@ -65,6 +66,14 @@ const App: React.FC = () => {
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [searchUsedFallback, setSearchUsedFallback] = useState(false);
   const keywordDebounceRef = useRef<number | null>(null);
+  const [founderNoteExpanded, setFounderNoteExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      return window.localStorage.getItem(FOUNDER_NOTE_COLLAPSED_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
 
   const [filters, setFilters] = useState<JobFilterState>({
     keyword: '',
@@ -188,6 +197,20 @@ const App: React.FC = () => {
       activeFilters
     });
   }, [feedType, filters.dateRange, filters.employmentTypes, filters.keyword, filters.remotePolicies, filters.seniorityLevels, filters.sort]);
+
+  const toggleFounderNote = () => {
+    setFounderNoteExpanded((prev) => {
+      const next = !prev;
+      if (!next) {
+        try {
+          window.localStorage.setItem(FOUNDER_NOTE_COLLAPSED_KEY, '1');
+        } catch {
+          // Ignore storage write issues.
+        }
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!showAdminLogin) return;
@@ -583,25 +606,43 @@ const App: React.FC = () => {
             )}
 
             <section className="mb-6 rounded-xl border border-[#cdece8] bg-[#f6fcfb] p-4 text-sm text-[#0f3f3a]">
-              <h2 className="mb-2 text-sm font-bold text-[#0B132B]">Quick note from Tarique</h2>
-              <p className="mb-3 text-sm text-[#19443f]">
-                Commons Jobs is built for real people in fintech and banking. Community Board is where I personally review roles and can often help with a warm intro. Web Pulse is a market scan of Canada-only roles from the last 12 days.
-              </p>
+              <button
+                type="button"
+                onClick={toggleFounderNote}
+                className="mb-2 inline-flex w-full items-center justify-between rounded-lg border border-[#bee6e2] bg-white px-3 py-2 text-left text-sm font-bold text-[#0B132B]"
+                aria-expanded={founderNoteExpanded}
+              >
+                <span>Why I built Commons Jobs</span>
+                <ChevronDown size={16} className={`transition-transform ${founderNoteExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {founderNoteExpanded && (
+                <p className="mb-3 text-sm leading-relaxed text-[#19443f]">
+                  Hi, it&apos;s Tarique 👋 Job boards were built to solve a real problem. They made finding work easier for both employees and employers. They did that really well. So well that now they&apos;re noisy. Everyone&apos;s on them, everything&apos;s on them, and signal gets buried. I noticed something else. Word of mouth works in fintech. The community is tight. But it doesn&apos;t scale beyond who you personally know. I thought about what AI and verticalization could do here. Slice things differently. Build infrastructure specific to a community instead of generic. That&apos;s what this is.
+                </p>
+              )}
+
               <div className="grid gap-2 md:grid-cols-2">
-                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-2">
+                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-3">
                   <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
                     <ShieldCheck size={13} />
                     Community Board
                   </p>
-                  <p className="text-xs text-[#245a55]">Reviewed by a human. Warm intro support is possible on many direct roles.</p>
+                  <p className="text-xs text-[#245a55]">
+                    People in the industry submit roles directly to me. If you know someone hiring, send me the role and I&apos;ll get it posted.
+                  </p>
                 </div>
-                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-2">
+                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-3">
                   <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
                     <Globe size={13} />
-                    Web Pulse (Canada)
+                    Web Pulse
                   </p>
-                  <p className="text-xs text-[#245a55]">Market feed only. Policy is strict: Canada-only, max 12 days old, max 50 roles, max 5 per company.</p>
+                  <p className="text-xs text-[#245a55]">Raw market feed curated from the internet. Canada only, last 12 days.</p>
                 </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-[#d7efec] bg-[#eefaf8] px-3 py-2 text-xs text-[#245a55]">
+                <span className="font-bold text-[#0B132B]">Please note:</span> This is pre-alpha. I&apos;m learning as I build. If something doesn&apos;t work or you have feedback, let me know. Seriously.
               </div>
             </section>
 

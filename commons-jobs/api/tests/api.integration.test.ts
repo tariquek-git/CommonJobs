@@ -713,6 +713,29 @@ describe('API integration', () => {
     await app.close();
   });
 
+  it('does not return 500 for disallowed CORS origins', async () => {
+    const app = buildApp(
+      new InMemoryJobRepository([]),
+      new InMemoryClickRepository(),
+      buildTestEnv({
+        CLIENT_ORIGIN: 'https://fintechcommons.com'
+      })
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/health',
+      headers: {
+        origin: 'https://evil.example'
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+
+    await app.close();
+  });
+
   it('rejects invalid submission payloads', async () => {
     const app = buildApp(new InMemoryJobRepository([]), new InMemoryClickRepository(), buildTestEnv());
     const res = await app.inject({

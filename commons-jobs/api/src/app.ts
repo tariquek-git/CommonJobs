@@ -99,7 +99,8 @@ export const buildApp = (
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error('Origin not allowed'), false);
+      // Disallowed origins should not crash the request path; simply omit CORS headers.
+      return cb(null, false);
     }
   });
 
