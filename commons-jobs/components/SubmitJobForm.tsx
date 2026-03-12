@@ -86,7 +86,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, erro
 
   return (
     <div className="space-y-1">
-      <label htmlFor={inputId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+      <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
@@ -96,8 +96,8 @@ const InputField: React.FC<InputFieldProps> = ({ label, required, id, name, erro
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
-        className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm placeholder:text-gray-400 ${
-          error ? 'border-red-300' : 'border-gray-300'
+        className={`w-full rounded-[12px] border bg-white px-3 py-2 text-sm text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring placeholder:text-[#95a3b5] ${
+          error ? 'border-red-300' : 'border-[var(--cj-stroke-soft)]'
         }`}
       />
       {error && (
@@ -123,7 +123,7 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id,
 
   return (
     <div className="space-y-1">
-      <label htmlFor={selectId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+      <label htmlFor={selectId} className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <select
@@ -133,8 +133,8 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, required, options, id,
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${selectId}-error` : undefined}
         {...props}
-        className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm ${
-          error ? 'border-red-300' : 'border-gray-300'
+        className={`w-full rounded-[12px] border bg-white px-3 py-2 text-sm text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring ${
+          error ? 'border-red-300' : 'border-[var(--cj-stroke-soft)]'
         }`}
       >
         <option value="">Select...</option>
@@ -558,15 +558,15 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	  }
 
   return (
-    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 relative">
-      <div className="p-6 border-b border-gray-100 bg-gray-50">
-        <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+    <div className="cj-surface-elevated relative mx-auto max-w-3xl overflow-hidden rounded-[20px]">
+      <div className="border-b border-[var(--cj-stroke-soft)] bg-[#f8fbfd] p-6">
+        <h2 className="text-xl font-semibold tracking-[-0.01em] text-[var(--cj-text-primary)]">
           {isEditing ? 'Edit Job' : (isAdminMode ? 'Create Job' : 'Post a Role')}
         </h2>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="p-6 md:p-8 space-y-8">
-            <div className="sticky top-20 z-10 rounded-xl border border-[#cdece8] bg-[#f4fbfa] px-4 py-3 shadow-sm">
+            <div className="sticky top-20 z-10 rounded-[14px] border border-[#cdece8] bg-[#f4fbfa] px-4 py-3 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs font-bold text-[#0b5f58] uppercase tracking-wide">Submission Progress</div>
                 <div className="text-xs font-semibold text-[#0b5f58]">
@@ -580,9 +580,9 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                 />
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => scrollToStep(step1Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">1. Link + JD</button>
-                <button type="button" onClick={() => scrollToStep(step2Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">2. Role Details</button>
-                <button type="button" onClick={() => scrollToStep(step3Ref)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-200 hover:border-[#2EC4B6]">{isAdminMode ? '3. Contact + Publish' : '3. Contact + Submit'}</button>
+                <button type="button" onClick={() => scrollToStep(step1Ref)} className="rounded-full border border-[var(--cj-stroke-soft)] bg-white px-3 py-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-accent)] focus-visible:focus-ring">1. Link + JD</button>
+                <button type="button" onClick={() => scrollToStep(step2Ref)} className="rounded-full border border-[var(--cj-stroke-soft)] bg-white px-3 py-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-accent)] focus-visible:focus-ring">2. Role Details</button>
+                <button type="button" onClick={() => scrollToStep(step3Ref)} className="rounded-full border border-[var(--cj-stroke-soft)] bg-white px-3 py-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-accent)] focus-visible:focus-ring">{isAdminMode ? '3. Contact + Publish' : '3. Contact + Submit'}</button>
               </div>
               {missingRequiredFields.length > 0 && (
                 <p className="mt-3 text-xs text-[#0b5f58]">
@@ -595,7 +595,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	              ref={errorRef}
 	              role="alert"
 	              tabIndex={-1}
-	              className="bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+	              className="rounded-[12px] border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
 	            >
 	              {error}
                 {Object.keys(fieldErrors).length > 0 && (
@@ -609,13 +609,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	          )}
 
           {draftRestored && !isEditing && (
-            <div className="rounded-lg border border-[#cdece8] bg-[#f4fbfa] p-3 text-xs text-[#0b5f58]">
+            <div className="rounded-[12px] border border-[#cdece8] bg-[#f4fbfa] p-3 text-xs text-[#0b5f58]">
               Restored your unsent draft from this browser.
             </div>
           )}
 
           {!isAdminMode && (
-            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm border border-blue-100">
+            <div className="rounded-[12px] border border-[#cdece8] bg-[#edf8f6] p-3 text-sm text-[#0f5f59]">
               Moderation note: community submissions are typically reviewed within 24 hours and may take up to 48 hours during high volume.
             </div>
           )}
@@ -630,8 +630,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     type="button"
                     onClick={handleLinkAutofill}
                     disabled={isAnalyzing || !formData.externalLink}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50"
-                >
+	                  className="flex items-center gap-1.5 text-xs font-semibold text-[var(--cj-accent-strong)] transition-premium hover:text-[var(--cj-accent-navy)] disabled:opacity-50"
+	                >
                     {isAnalyzing ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
                     {isAnalyzing ? 'Analyzing...' : 'Auto-Fill Intelligence'}
                 </button>
@@ -642,8 +642,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		                required 
 		                type="url" 
 		                placeholder="https://company.com/jobs/..." 
-		                className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 outline-none transition-all text-base ${
-                      fieldErrors.externalLink ? 'border-red-300' : 'border-gray-300'
+		                className={`w-full rounded-[12px] border bg-white px-4 py-3 text-base text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring ${
+                      fieldErrors.externalLink ? 'border-red-300' : 'border-[var(--cj-stroke-soft)]'
                     }`}
                     aria-invalid={Boolean(fieldErrors.externalLink)}
                     aria-describedby={fieldErrors.externalLink ? `${applyLinkId}-error` : undefined}
@@ -658,13 +658,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     {fieldErrors.externalLink}
                   </p>
                 )}
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[var(--cj-text-muted)]">
                   Some job pages block extraction. If auto-fill can’t read the link, paste the JD text below and continue.
                 </p>
 
 	             {/* JD Paste Fallback */}
-	             <div className="bg-white rounded-lg p-4 border border-gray-200 transition-colors">
-	                <label htmlFor={jdTextId} className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+	             <div className="rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white p-4 transition-colors">
+	                <label htmlFor={jdTextId} className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
 	                    Paste Job Description (Intelligence Engine)
 	                </label>
                   {aiFallbackNotice && (
@@ -685,7 +685,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                <textarea
 	                    id={jdTextId}
 	                    ref={jdInputRef}
-	                    className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 min-h-[120px] bg-white placeholder:text-gray-400"
+	                    className="min-h-[120px] w-full rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white p-3 text-sm text-[var(--cj-text-primary)] placeholder:text-[#95a3b5] focus-visible:focus-ring"
 	                    placeholder="If auto-fill fails, paste the full JD text here. The AI will extract role details, location, and tags for you."
 	                    value={jdText}
 	                    onChange={(e) => setJdText(e.target.value)}
@@ -694,7 +694,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
                     type="button"
                     onClick={handleAIAnalysis}
                     disabled={isAnalyzing || !jdText}
-                    className="mt-2 text-xs font-bold text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                    className="mt-2 flex items-center gap-1 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:text-[var(--cj-text-primary)]"
                 >
                     {isAnalyzing ? (
                         <>
@@ -709,11 +709,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
              </div>
           </section>
 
-          <hr className="border-gray-100" />
+          <hr className="border-[var(--cj-stroke-soft)]" />
 
           {/* Step 2: Core Details */}
           <section id="submit-step-2" ref={step2Ref} className="space-y-6">
-            <h3 className="text-sm font-bold text-gray-900">2. Role Details</h3>
+            <h3 className="text-sm font-semibold text-[var(--cj-text-primary)]">2. Role Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 	              <div className="md:col-span-2">
 	                 <InputField
@@ -747,8 +747,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	            </div>
 
             {/* Location Hierarchy */}
-            <div className="bg-white p-5 rounded-lg border border-gray-200 space-y-4">
-                 <h4 className="text-xs font-bold text-gray-500 uppercase">Location Hierarchy</h4>
+            <div className="space-y-4 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white p-5">
+                 <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">Location Hierarchy</h4>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      <SelectField
                         label="Country"
@@ -768,7 +768,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                        disabled={!formData.locationCountry}
 	                     />
 	                     <div className="space-y-1">
-	                         <label htmlFor={cityId} className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+	                         <label htmlFor={cityId} className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
 	                           City <span className="text-red-500">*</span>
 	                         </label>
 		                         <input 
@@ -777,8 +777,8 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 		                             type="text" 
 		                             placeholder="City (e.g., Toronto)" 
                                autoComplete="address-level2"
-		                             className={`w-full px-3 py-2 bg-white border rounded-lg focus:ring-1 focus:ring-blue-600 outline-none text-sm ${
-                                   fieldErrors.locationCity ? 'border-red-300' : 'border-gray-300'
+		                             className={`w-full rounded-[12px] border bg-white px-3 py-2 text-sm text-[var(--cj-text-primary)] outline-none transition-premium focus-visible:focus-ring ${
+                                   fieldErrors.locationCity ? 'border-red-300' : 'border-[var(--cj-stroke-soft)]'
                                  }`}
                                aria-invalid={Boolean(fieldErrors.locationCity)}
                                aria-describedby={fieldErrors.locationCity ? `${cityId}-error` : undefined}
@@ -798,11 +798,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
             </div>
 
             <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-                    Editable Intelligence Summary <span className="text-gray-400 font-normal ml-1">(AI Humanized)</span>
+                <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
+                    Editable Intelligence Summary <span className="ml-1 font-normal text-[#95a3b5]">(AI Humanized)</span>
                 </label>
                 <textarea 
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 text-sm" 
+                    className="w-full rounded-[12px] border border-[var(--cj-stroke-soft)] p-3 text-sm text-[var(--cj-text-primary)] focus-visible:focus-ring" 
 	                    rows={5}
 	                    placeholder="Human summary (4-6 sentences): what you will do, who you work with, and what success looks like."
 	                    value={formData.intelligenceSummary || ''} 
@@ -811,13 +811,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
             </div>
           </section>
 
-          <hr className="border-gray-100" />
+          <hr className="border-[var(--cj-stroke-soft)]" />
 
           {/* Step 3: Admin Publishing Controls */}
           {isAdminMode && (
             <>
               <section id="submit-step-3" ref={step3Ref} className="space-y-6">
-                <h3 className="text-sm font-bold text-gray-900">3. Publishing Controls</h3>
+                <h3 className="text-sm font-semibold text-[var(--cj-text-primary)]">3. Publishing Controls</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <SelectField
                     label="Source Type"
@@ -869,13 +869,13 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 	                  />
                 </div>
               </section>
-              <hr className="border-gray-100" />
+              <hr className="border-[var(--cj-stroke-soft)]" />
             </>
           )}
 
           {/* Step 4: Contact */}
           <section id={isAdminMode ? undefined : 'submit-step-3'} ref={isAdminMode ? undefined : step3Ref} className="space-y-6">
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-sm font-semibold text-[var(--cj-text-primary)]">
                 {isAdminMode ? '4. Contact Info (Optional)' : '3. Contact Info (Private)'}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -909,7 +909,7 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-70 transition-colors shadow-sm"
+              className="w-full rounded-[12px] border border-[var(--cj-accent-navy)] bg-[var(--cj-accent-navy)] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-premium hover:border-[var(--cj-accent)] hover:bg-[var(--cj-accent)] hover:text-[var(--cj-accent-navy)] disabled:opacity-70"
             >
               {isSubmitting ? 'Processing...' : (isEditing ? 'Save Changes' : (isAdminMode ? 'Create Job' : 'Submit for Verification'))}
             </button>
@@ -918,11 +918,11 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
               <button 
                   type="button"
                   onClick={onOpenTerms} 
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-600 mt-4 transition-colors group"
+                  className="group mt-4 flex items-center gap-1.5 text-xs text-[var(--cj-text-muted)] transition-premium hover:text-[var(--cj-accent-strong)]"
                   title="View Data, Terms & Common Sense"
               > 
-                  <HelpCircle size={14} className="group-hover:text-blue-600" /> 
-                  <span className="border-b border-transparent group-hover:border-blue-600">Data, Terms & Common Sense</span>
+                  <HelpCircle size={14} className="group-hover:text-[var(--cj-accent-strong)]" /> 
+                  <span className="border-b border-transparent group-hover:border-[var(--cj-accent-strong)]">Data, Terms & Common Sense</span>
               </button>
             )}
           </div>

@@ -6,7 +6,7 @@ import JobCard from './components/JobCard';
 import { JobFilterState, JobPosting, JobSearchFacets, JobSortOption } from './types';
 import { getJobs, getJobById, adminLogin, adminLogout, refreshAdminSession } from './services/jobService';
 import { CONTACT_EMAIL } from './siteConfig';
-import { Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck, RefreshCcw } from 'lucide-react';
 import { buildFeedbackMailto } from './utils/feedbackMailto';
 
 const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [aggregatedPolicySummary, setAggregatedPolicySummary] = useState<AggregatedPolicySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -257,6 +258,7 @@ const App: React.FC = () => {
           setFacets(data.facets);
           setCompanyCapApplied(Boolean(data.meta?.companyCapApplied));
           setAggregatedPolicySummary(feedType === 'aggregated' ? (data.meta || null) : null);
+          setLastLoadedAt(new Date());
         } catch (error) {
           if (controller.signal.aborted) return;
           console.error(error);
@@ -449,6 +451,46 @@ const App: React.FC = () => {
             </button>
           </div>
 
+          <div className="cj-surface-elevated mb-5 animate-fade-in p-4 md:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
+                  {feedType === 'direct' ? 'Trusted Community Roles' : 'Canada Market Pulse'}
+                </p>
+                <h2 className="mt-1 text-lg font-semibold tracking-[-0.01em] text-[var(--cj-text-primary)]">
+                  {feedType === 'direct' ? 'Human-submitted fintech and banking roles' : 'Recent Canadian banking + fintech roles'}
+                </h2>
+                <p className="mt-1 text-sm text-[var(--cj-text-secondary)]">
+                  {feedType === 'direct'
+                    ? 'These are reviewed submissions from the Commons network where warm intros may be possible.'
+                    : 'Web Pulse is policy-filtered: Canada only, up to 12 days old, max 50 roles, max 5 roles per company.'}
+                </p>
+                <p className="mt-2 text-xs font-medium text-[var(--cj-text-muted)]">
+                  {loading
+                    ? 'Refreshing…'
+                    : `${totalJobs} role${totalJobs === 1 ? '' : 's'} loaded${lastLoadedAt ? ` · Updated ${lastLoadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReloadNonce((prev) => prev + 1)}
+                  className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white px-3 py-2 text-xs font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-stroke-strong)] hover:text-[var(--cj-text-primary)] focus-visible:focus-ring"
+                >
+                  <RefreshCcw size={13} />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('submit')}
+                  className="inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--cj-accent-navy)] bg-[var(--cj-accent-navy)] px-3 py-2 text-xs font-semibold text-white transition-premium hover:opacity-90 focus-visible:focus-ring"
+                >
+                  Post Role
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="sticky top-[5.5rem] z-20 mb-5 rounded-[16px] border border-[var(--cj-stroke-soft)] bg-white/90 px-4 py-3 backdrop-blur-md shadow-[0_8px_18px_rgba(11,21,39,0.05)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -575,17 +617,60 @@ const App: React.FC = () => {
           ) : loadError ? (
             <div className="rounded-[16px] border border-red-200 bg-red-50 p-8 text-center text-red-700" role="alert">
               <p className="mb-3 font-semibold">{loadError}</p>
-              <button
-                type="button"
-                onClick={() => setReloadNonce((prev) => prev + 1)}
-                className="rounded-[12px] bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-premium hover:bg-red-700 focus-visible:focus-ring"
-              >
-                Retry
-              </button>
+              <p className="mb-4 text-sm text-red-600">Try refreshing this feed, or switch feeds while we retry upstream calls.</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReloadNonce((prev) => prev + 1)}
+                  className="rounded-[12px] bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-premium hover:bg-red-700 focus-visible:focus-ring"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedType((prev) => (prev === 'direct' ? 'aggregated' : 'direct'));
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className="rounded-[12px] border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-premium hover:bg-red-100 focus-visible:focus-ring"
+                >
+                  Switch Feed
+                </button>
+              </div>
             </div>
           ) : jobs.length === 0 ? (
             <div className="rounded-[16px] border border-dashed border-[var(--cj-stroke-strong)] bg-[var(--cj-surface-base)] px-6 py-14 text-center text-[var(--cj-text-muted)]">
-              No {feedType === 'aggregated' ? 'Canadian ' : ''}opportunities found matching your filters.
+              <p className="mb-2 text-base font-semibold text-[var(--cj-text-secondary)]">
+                No {feedType === 'aggregated' ? 'Canadian ' : ''}opportunities found for these filters.
+              </p>
+              <p className="mb-5 text-sm">Clear filters or switch feeds to widen results.</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      remotePolicies: [],
+                      seniorityLevels: [],
+                      employmentTypes: [],
+                      page: 1
+                    }))
+                  }
+                  className="rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white px-4 py-2 text-sm font-semibold text-[var(--cj-text-secondary)] transition-premium hover:border-[var(--cj-stroke-strong)] focus-visible:focus-ring"
+                >
+                  Clear Filters
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedType((prev) => (prev === 'direct' ? 'aggregated' : 'direct'));
+                    setFilters((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className="rounded-[12px] border border-[var(--cj-accent)] bg-[#ecfaf8] px-4 py-2 text-sm font-semibold text-[var(--cj-accent-strong)] transition-premium hover:bg-[#dff5f1] focus-visible:focus-ring"
+                >
+                  Switch Feed
+                </button>
+              </div>
             </div>
           ) : (
             <>

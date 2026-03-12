@@ -30,7 +30,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
   return (
     <article
-      className={`group h-full overflow-hidden rounded-[16px] border bg-[var(--cj-surface-elevated)] shadow-[var(--cj-shadow-soft)] transition-premium hover:shadow-[var(--cj-shadow-elevated)] ${
+      className={`group h-full overflow-hidden rounded-[16px] border bg-[var(--cj-surface-elevated)] shadow-[var(--cj-shadow-soft)] transition-premium hover:-translate-y-[1px] hover:shadow-[var(--cj-shadow-elevated)] ${
         isAggregated ? 'border-[#cce3df]' : 'border-[var(--cj-stroke-soft)]'
       }`}
     >
@@ -73,7 +73,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
           </div>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-3.5">
           <h3
             className="mb-1.5 text-[1.13rem] font-semibold leading-[1.25] tracking-[-0.01em] text-[var(--cj-text-primary)] transition-premium group-hover:text-[#0f5f59]"
             title={job.roleTitle}
@@ -98,7 +98,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         </div>
 
         <div
-          className={`mb-5 min-h-[102px] rounded-[12px] border px-3.5 py-3 ${
+          className={`mb-5 min-h-[108px] rounded-[12px] border px-3.5 py-3 ${
             isAggregated ? 'border-[#d5ebe7] bg-[#f3fbf9]' : 'border-[#e5ecf1] bg-[#f8fafd]'
           }`}
         >
