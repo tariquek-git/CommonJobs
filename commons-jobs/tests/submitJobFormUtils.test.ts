@@ -32,6 +32,20 @@ describe('submitJobFormUtils', () => {
     expect(normalized.tags).toEqual(['Payments', 'Risk']);
   });
 
+  it('drops placeholder AI fields and avoids forcing fallback defaults', () => {
+    const normalized = normalizeAIData({
+      companyName: 'Not specified',
+      locationCountry: 'Unknown',
+      remotePolicy: 'N/A',
+      seniority: 'N/A'
+    });
+
+    expect(normalized.companyName).toBeUndefined();
+    expect(normalized.locationCountry).toBeUndefined();
+    expect(normalized.remotePolicy).toBeUndefined();
+    expect(normalized.seniority).toBeUndefined();
+  });
+
   it('sanitizes payload by trimming fields and dropping invalid enums', () => {
     const sanitized = sanitizePayloadForSubmit({
       roleTitle: '  Engineer  ',
@@ -58,6 +72,27 @@ describe('submitJobFormUtils', () => {
     expect(errors.companyName).toBeTruthy();
     expect(errors.submitterName).toBeTruthy();
     expect(errors.submitterEmail).toBeTruthy();
+  });
+
+  it('treats placeholder required values as invalid', () => {
+    const errors = validateRequiredFields({
+      formData: {
+        roleTitle: 'Not specified',
+        companyName: 'Unknown',
+        locationCountry: 'N/A',
+        locationCity: 'TBD'
+      },
+      isAdminMode: false,
+      trimmedSubmitterName: 'N/A',
+      trimmedSubmitterEmail: 'qa@example.com',
+      trimmedExternalLink: 'https://example.com/job'
+    });
+
+    expect(errors.roleTitle).toBeTruthy();
+    expect(errors.companyName).toBeTruthy();
+    expect(errors.locationCountry).toBeTruthy();
+    expect(errors.locationCity).toBeTruthy();
+    expect(errors.submitterName).toBeTruthy();
   });
 
   it('maps rate-limited error to friendly text', () => {

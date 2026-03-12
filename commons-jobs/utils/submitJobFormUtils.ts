@@ -53,14 +53,44 @@ export const getInitialState = (sourceType: JobSourceType): Partial<JobPosting> 
   intelligenceSummary: '',
   externalSource: sourceType === 'Direct' ? 'Direct' : 'Manual Web Import',
   tags: [],
-  remotePolicy: RemotePolicy.ONSITE,
   sourceType,
   isVerified: sourceType === 'Direct',
   status: sourceType === 'Direct' ? 'pending' : 'active'
 });
 
+const PLACEHOLDER_TEXT_VALUES = new Set([
+  'n/a',
+  'na',
+  'none',
+  'unknown',
+  'unspecified',
+  'not specified',
+  'not available',
+  'not provided',
+  'not set',
+  'null',
+  'undefined',
+  'tbd',
+  'to be decided'
+]);
+
+export const isPlaceholderText = (value: string): boolean => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return true;
+  return PLACEHOLDER_TEXT_VALUES.has(normalized);
+};
+
+export const normalizeMeaningfulString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (isPlaceholderText(trimmed)) return undefined;
+  return trimmed;
+};
+
 export const normalizeAIData = (data: Record<string, unknown>): Partial<JobPosting> => {
   const {
+    summary,
     employmentType,
     seniority,
     locationCountry: rawLocationCountry,
@@ -84,27 +114,37 @@ export const normalizeAIData = (data: Record<string, unknown>): Partial<JobPosti
   for (const [key, value] of Object.entries(rest)) {
     if (key === 'externalLink' || key === 'submitterEmail' || key === 'submitterName') continue;
     if (allowedStringFields.has(key) && typeof value === 'string') {
-      safeRest[key] = value;
+      const normalizedString = normalizeMeaningfulString(value);
+      if (normalizedString) {
+        safeRest[key] = normalizedString;
+      }
       continue;
     }
-    if (key === 'tags' && Array.isArray(value) && value.every((entry) => typeof entry === 'string')) {
-      safeRest[key] = value;
+    if (key === 'tags' && Array.isArray(value)) {
+      const normalizedTags = value
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0 && !isPlaceholderText(entry));
+      if (normalizedTags.length > 0) {
+        safeRest[key] = normalizedTags;
+      }
     }
   }
 
-  let locationCountry = typeof rawLocationCountry === 'string' ? rawLocationCountry : '';
-  let remotePolicy = typeof rawRemotePolicy === 'string' ? rawRemotePolicy : '';
-  let normalizedEmploymentType = typeof employmentType === 'string' ? employmentType : '';
-  let normalizedSeniority = typeof seniority === 'string' ? seniority : '';
+  let locationCountry = normalizeMeaningfulString(rawLocationCountry) || '';
+  let remotePolicy = normalizeMeaningfulString(rawRemotePolicy) || '';
+  let normalizedEmploymentType = normalizeMeaningfulString(employmentType) || '';
+  let normalizedSeniority = normalizeMeaningfulString(seniority) || '';
 
   if (locationCountry === 'USA' || locationCountry === 'US') locationCountry = 'United States';
   if (locationCountry === 'UK' || locationCountry === 'Germany' || locationCountry === 'France') locationCountry = 'Europe';
-  if (!COUNTRIES.includes(locationCountry)) locationCountry = 'Rest of World';
+  if (!COUNTRIES.includes(locationCountry)) locationCountry = '';
 
   if (!Object.values(RemotePolicy).includes(remotePolicy as RemotePolicy)) {
     if (remotePolicy?.toLowerCase().includes('remote')) remotePolicy = RemotePolicy.REMOTE;
     else if (remotePolicy?.toLowerCase().includes('hybrid')) remotePolicy = RemotePolicy.HYBRID;
-    else remotePolicy = RemotePolicy.ONSITE;
+    else if (remotePolicy?.toLowerCase().includes('onsite') || remotePolicy?.toLowerCase().includes('office')) remotePolicy = RemotePolicy.ONSITE;
+    else remotePolicy = '';
   }
 
   if (!Object.values(EmploymentType).includes(normalizedEmploymentType as EmploymentType)) {
@@ -125,13 +165,20 @@ export const normalizeAIData = (data: Record<string, unknown>): Partial<JobPosti
     else normalizedSeniority = '';
   }
 
-  return {
+  const normalized: Partial<JobPosting> = {
     ...safeRest,
-    locationCountry,
-    remotePolicy: remotePolicy as RemotePolicy,
-    employmentType: (normalizedEmploymentType || undefined) as EmploymentType | undefined,
-    seniority: (normalizedSeniority || undefined) as SeniorityLevel | undefined
+    ...(locationCountry ? { locationCountry } : {}),
+    ...(remotePolicy ? { remotePolicy: remotePolicy as RemotePolicy } : {}),
+    ...(normalizedEmploymentType ? { employmentType: normalizedEmploymentType as EmploymentType } : {}),
+    ...(normalizedSeniority ? { seniority: normalizedSeniority as SeniorityLevel } : {})
   };
+
+  const normalizedSummary = normalizeMeaningfulString(summary);
+  if (normalizedSummary) {
+    normalized.intelligenceSummary = normalizedSummary;
+  }
+
+  return normalized;
 };
 
 export const sanitizePayloadForSubmit = (payload: Partial<JobPosting>): Partial<JobPosting> => {
@@ -140,7 +187,7 @@ export const sanitizePayloadForSubmit = (payload: Partial<JobPosting>): Partial<
     if (typeof value === 'string') {
       const trimmed = value.trim();
       cleaned[key] = trimmed;
-      if (trimmed === '' && key !== 'companyWebsite') {
+      if (trimmed === '' || isPlaceholderText(trimmed)) {
         delete cleaned[key];
       }
     }
@@ -181,11 +228,11 @@ export const validateRequiredFields = ({
 }): SubmissionFieldErrors => {
   const errors: SubmissionFieldErrors = {};
   if (!trimmedExternalLink) errors.externalLink = 'Apply link is required.';
-  if (!formData.roleTitle?.trim()) errors.roleTitle = 'Role title is required.';
-  if (!formData.companyName?.trim()) errors.companyName = 'Company name is required.';
-  if (!formData.locationCountry) errors.locationCountry = 'Country is required.';
-  if (!formData.locationCity?.trim()) errors.locationCity = 'City is required.';
-  if (!isAdminMode && !trimmedSubmitterName) errors.submitterName = 'Your name is required.';
+  if (!normalizeMeaningfulString(formData.roleTitle)) errors.roleTitle = 'Role title is required.';
+  if (!normalizeMeaningfulString(formData.companyName)) errors.companyName = 'Company name is required.';
+  if (!normalizeMeaningfulString(formData.locationCountry)) errors.locationCountry = 'Country is required.';
+  if (!normalizeMeaningfulString(formData.locationCity)) errors.locationCity = 'City is required.';
+  if (!isAdminMode && !normalizeMeaningfulString(trimmedSubmitterName)) errors.submitterName = 'Your name is required.';
   if (!isAdminMode && !trimmedSubmitterEmail) errors.submitterEmail = 'Your email is required.';
   return errors;
 };

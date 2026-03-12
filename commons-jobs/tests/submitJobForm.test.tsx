@@ -128,7 +128,7 @@ describe('SubmitJobForm', () => {
     expect(firstArg.submitterEmail).toBe('alice@example.com');
   });
 
-  it('keeps a valid default Remote Policy when AI returns an empty/invalid remotePolicy', async () => {
+  it('does not force a remote policy when AI returns an empty/invalid value', async () => {
     analyzeJobDescriptionMock.mockResolvedValueOnce({
       result: {
         summary: 'Test summary',
@@ -151,7 +151,7 @@ describe('SubmitJobForm', () => {
 
     await waitFor(() => {
       const select = screen.getByLabelText(/remote policy/i) as HTMLSelectElement;
-      expect(select.value).toBe('Onsite');
+      expect(select.value).toBe('');
     });
 
     const company = screen.getByLabelText(/company name/i) as HTMLInputElement;

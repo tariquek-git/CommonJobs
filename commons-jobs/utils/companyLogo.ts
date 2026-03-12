@@ -54,7 +54,6 @@ export const getCompanyLogoCandidates = (companyWebsite?: string, externalLink?:
   if (!hostname) return [];
 
   return [
-    `https://logo.clearbit.com/${hostname}`,
     `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`
   ];
 };

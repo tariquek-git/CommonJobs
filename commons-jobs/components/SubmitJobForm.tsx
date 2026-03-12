@@ -12,6 +12,7 @@ import {
   getInitialState,
   mapSubmissionError,
   listMissingRequiredFields,
+  normalizeMeaningfulString,
   normalizeAIData,
   sanitizePayloadForSubmit,
   SubmissionFieldErrors,
@@ -345,8 +346,26 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
         const normalized = normalizeAIData(rawAnalysis);
         setFormData((prev) => ({
           ...prev,
-          ...normalized,
-          intelligenceSummary: typeof rawAnalysis.summary === 'string' ? rawAnalysis.summary : prev.intelligenceSummary
+          ...Object.entries(normalized).reduce<Partial<JobPosting>>((next, [key, value]) => {
+            if (value === undefined || value === null) return next;
+            const fieldKey = key as keyof JobPosting;
+            const currentValue = prev[fieldKey];
+            const nextString = typeof value === 'string' ? normalizeMeaningfulString(value) : undefined;
+
+            if (fieldKey === 'intelligenceSummary') {
+              if (nextString) {
+                next[fieldKey] = nextString as never;
+              }
+              return next;
+            }
+
+            if (typeof currentValue === 'string' && normalizeMeaningfulString(currentValue)) {
+              return next;
+            }
+
+            next[fieldKey] = (nextString ?? value) as never;
+            return next;
+          }, {})
         }));
         setAiFallbackNotice(Boolean(analysisResponse?.fallback));
       } else {
