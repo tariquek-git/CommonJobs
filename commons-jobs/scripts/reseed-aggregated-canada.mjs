@@ -49,6 +49,12 @@ const SOURCE_CONFIG = [
     token: 'coinbase',
     companyName: 'Coinbase',
     companyWebsite: 'https://www.coinbase.com'
+  },
+  {
+    provider: 'greenhouse',
+    token: 'nubank',
+    companyName: 'Nubank',
+    companyWebsite: 'https://nubank.com.br'
   }
 ];
 
