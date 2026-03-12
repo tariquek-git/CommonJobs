@@ -203,8 +203,11 @@ ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:smoke
 # AI reliability check against /api/ai/* with fallback and 5xx thresholds
 npm run ops:ai-monitor
 
-# Optional hygiene cleanup: archive QA/smoke/test roles by title pattern
+# Optional hygiene cleanup: archive QA/smoke/test roles by title/company/source pattern
 ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:archive-test-jobs
+
+# Reseed Web Pulse with live Canada roles (12-day window, max 5/company, target 30)
+ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:reseed-aggregated
 ```
 
 Runbook:

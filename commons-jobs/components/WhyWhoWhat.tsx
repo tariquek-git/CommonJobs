@@ -51,7 +51,15 @@ const WhyWhoWhat: React.FC<PageProps> = ({ onBack }) => {
             If you want to chat about modernizing cards and payments, hit me up.
           </p>
           <p className="mt-2 font-medium">
-            Connect on LinkedIn: <a href="#" className="text-blue-600 hover:underline">[LINKEDIN URL HERE]</a>
+            Connect on LinkedIn:{' '}
+            <a
+              href="https://ca.linkedin.com/in/tariquekhan1"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-blue-600 hover:underline"
+            >
+              linkedin.com/in/tariquekhan1
+            </a>
           </p>
         </section>
       </div>

@@ -55,6 +55,19 @@ Escalation thresholds:
 3. Normalize title/company/location for approved jobs.
 4. Spot-check public board visibility after approvals.
 
+## Feed Hygiene Utilities
+Run from `/Users/tarique/Documents/commons-jobs`.
+
+Archive visible QA artifacts:
+```bash
+ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:archive-test-jobs
+```
+
+Reseed Web Pulse from live internet sources (Canada, <=12 days, cap 5/company):
+```bash
+ADMIN_USERNAME="..." ADMIN_PASSWORD="..." npm run ops:reseed-aggregated
+```
+
 ## Launch Gate (48h)
 Only expand beta tester volume when all conditions pass for 48h:
 - No `P0` incidents.

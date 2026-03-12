@@ -4,6 +4,8 @@ const baseUrl = (process.env.BASE_URL || 'https://fintechcommons.com').replace(/
 const adminUsername = process.env.ADMIN_USERNAME;
 const adminPassword = process.env.ADMIN_PASSWORD;
 const titlePattern = new RegExp(process.env.TITLE_PATTERN || 'qa|smoke|test', 'i');
+const companyPattern = new RegExp(process.env.COMPANY_PATTERN || 'qa|smoke|test', 'i');
+const sourcePattern = new RegExp(process.env.SOURCE_PATTERN || 'qa|smoke|test', 'i');
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -44,7 +46,13 @@ const run = async () => {
   assert(jobsRes.response.status === 200, `admin jobs failed with ${jobsRes.response.status}`);
 
   const jobs = Array.isArray(jobsRes.body?.jobs) ? jobsRes.body.jobs : [];
-  const matches = jobs.filter((job) => job.status !== 'archived' && titlePattern.test(job.roleTitle || ''));
+  const matches = jobs.filter((job) => {
+    if (job.status === 'archived') return false;
+    const roleTitle = job.roleTitle || '';
+    const companyName = job.companyName || '';
+    const externalSource = job.externalSource || '';
+    return titlePattern.test(roleTitle) || companyPattern.test(companyName) || sourcePattern.test(externalSource);
+  });
 
   const archivedIds = [];
   for (const job of matches) {

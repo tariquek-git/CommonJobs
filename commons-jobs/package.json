@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "ops:smoke": "node scripts/smoke-prod.mjs",
     "ops:ai-monitor": "node scripts/monitor-ai.mjs",
-    "ops:archive-test-jobs": "node scripts/archive-test-jobs.mjs"
+    "ops:archive-test-jobs": "node scripts/archive-test-jobs.mjs",
+    "ops:reseed-aggregated": "node scripts/reseed-aggregated-canada.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

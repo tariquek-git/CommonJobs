@@ -8,7 +8,7 @@ import { getJobs, getJobById, adminLogin, adminLogout, refreshAdminSession } fro
 import { parseSearchQuery } from './services/geminiService';
 import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
-import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck, Clock3 } from 'lucide-react';
+import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck } from 'lucide-react';
 import { buildFeedbackMailto } from './utils/feedbackMailto';
 
 const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
@@ -582,29 +582,25 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
-              <h2 className="mb-3 text-sm font-bold text-gray-900">How this board works</h2>
-              <div className="grid gap-2 md:grid-cols-3">
-                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
+            <section className="mb-6 rounded-xl border border-[#cdece8] bg-[#f6fcfb] p-4 text-sm text-[#0f3f3a]">
+              <h2 className="mb-2 text-sm font-bold text-[#0B132B]">Quick note from Tarique</h2>
+              <p className="mb-3 text-sm text-[#19443f]">
+                Commons Jobs is built for real people in fintech and banking. Community Board is where I personally review roles and can often help with a warm intro. Web Pulse is a market scan of Canada-only roles from the last 12 days.
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
                     <ShieldCheck size={13} />
-                    Community reviewed
+                    Community Board
                   </p>
-                  <p className="text-xs text-gray-600">Community Board roles are reviewed before they are publicly visible.</p>
+                  <p className="text-xs text-[#245a55]">Reviewed by a human. Warm intro support is possible on many direct roles.</p>
                 </div>
-                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
+                <div className="rounded-lg border border-[#bee6e2] bg-white px-3 py-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-[#0B132B]">
                     <Globe size={13} />
-                    Market feed
+                    Web Pulse (Canada)
                   </p>
-                  <p className="text-xs text-gray-600">Web Pulse reflects public market listings and may contain duplicates or stale posts.</p>
-                </div>
-                <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <p className="mb-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-700">
-                    <Clock3 size={13} />
-                    Moderation SLA
-                  </p>
-                  <p className="text-xs text-gray-600">New community submissions are usually reviewed in 24h and may take up to 48h.</p>
+                  <p className="text-xs text-[#245a55]">Market feed only. Policy is strict: Canada-only, max 12 days old, max 50 roles, max 5 per company.</p>
                 </div>
               </div>
             </section>
