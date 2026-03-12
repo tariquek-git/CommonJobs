@@ -24,6 +24,13 @@ const DEFAULT_FACETS: JobSearchFacets = {
   seniorityLevels: { Junior: 0, 'Mid-Level': 0, Senior: 0, Lead: 0, Executive: 0 }
 };
 
+type AggregatedPolicySummary = {
+  aggregatedPolicyApplied: boolean;
+  companyCapApplied: boolean;
+  aggregatedCounts: { beforePolicy: number; afterPolicy: number };
+  policy: { country: 'Canada'; maxAgeDays: number; maxResults: number; maxPerCompany: number } | null;
+};
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'browse' | 'submit' | 'admin' | 'terms' | 'about' | 'faq'>('browse');
   
@@ -34,6 +41,7 @@ const App: React.FC = () => {
   const [totalJobs, setTotalJobs] = useState(0);
   const [facets, setFacets] = useState<JobSearchFacets>(DEFAULT_FACETS);
   const [companyCapApplied, setCompanyCapApplied] = useState(false);
+  const [aggregatedPolicySummary, setAggregatedPolicySummary] = useState<AggregatedPolicySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -238,10 +246,12 @@ const App: React.FC = () => {
           setTotalJobs(data.total);
           setFacets(data.facets);
           setCompanyCapApplied(Boolean(data.meta?.companyCapApplied));
+          setAggregatedPolicySummary(feedType === 'aggregated' ? (data.meta || null) : null);
         } catch (error) {
           if (controller.signal.aborted) return;
           console.error(error);
           setLoadError('Unable to load roles right now. Please try again.');
+          setAggregatedPolicySummary(null);
         } finally {
           if (!controller.signal.aborted) {
             setLoading(false);
@@ -558,10 +568,15 @@ const App: React.FC = () => {
                     <Globe size={18} className="mt-0.5 shrink-0" />
                     <div>
                         <p className="font-bold">Automated Canadian Fintech Feed</p>
-                        <p className="opacity-80">This feed pulls public listings from major Canadian banks and fintechs posted in the last 14 days. These are not manually verified by the Commons.</p>
-                        <p className="mt-1 text-xs font-semibold opacity-90">Company diversity active: max 5 active roles per company.</p>
+                        <p className="opacity-80">This feed pulls public listings from major Canadian banks and fintechs posted in the last 12 days. These are not manually verified by the Commons.</p>
+                        <p className="mt-1 text-xs font-semibold opacity-90">Policy: Canada only, max 12 days, max 50 jobs, max 5 active roles per company.</p>
                         {companyCapApplied && (
                           <p className="mt-1 text-xs opacity-80">Repeated companies were trimmed in this result set.</p>
+                        )}
+                        {aggregatedPolicySummary?.policy && (
+                          <p className="mt-1 text-xs opacity-80">
+                            Policy filter kept {aggregatedPolicySummary.aggregatedCounts.afterPolicy} of {aggregatedPolicySummary.aggregatedCounts.beforePolicy} roles in this search.
+                          </p>
                         )}
                     </div>
                 </div>

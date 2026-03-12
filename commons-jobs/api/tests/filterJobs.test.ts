@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { AGGREGATED_COMPANY_CAP, applyCompanyDiversityCap, buildSearchFacets, filterPublicJobs } from '../src/services/filterJobs.js';
+import {
+  AGGREGATED_COMPANY_CAP,
+  AGGREGATED_MAX_RESULTS,
+  applyAggregatedFeedPolicy,
+  applyCompanyDiversityCap,
+  buildSearchFacets,
+  filterPublicJobs
+} from '../src/services/filterJobs.js';
 import { JobPosting } from '../src/types/jobs.js';
 
 const now = Date.now();
@@ -180,5 +187,63 @@ describe('filterPublicJobs', () => {
     const result = applyCompanyDiversityCap(repeated);
     expect(result).toHaveLength(AGGREGATED_COMPANY_CAP);
     expect(result.map((job) => job.id)).toEqual(repeated.slice(0, AGGREGATED_COMPANY_CAP).map((job) => job.id));
+  });
+
+  it('enforces aggregated feed policy (Canada-only, recency, max results, diversity)', () => {
+    const canadaRecent: JobPosting[] = Array.from({ length: AGGREGATED_MAX_RESULTS + 10 }).map((_, index) => ({
+      id: `can-${index}`,
+      companyName: `Company-${Math.floor(index / 6)}`,
+      companyWebsite: 'https://company.example',
+      roleTitle: `Canada role ${index}`,
+      externalLink: `https://company.example/jobs/${index}`,
+      postedDate: new Date(now - index * 60_000).toISOString(),
+      status: 'active',
+      sourceType: 'Aggregated',
+      isVerified: false,
+      locationCountry: 'Canada',
+      clicks: 0
+    }));
+
+    const staleAndForeign: JobPosting[] = [
+      {
+        id: 'foreign',
+        companyName: 'US Co',
+        companyWebsite: 'https://us.example',
+        roleTitle: 'US Role',
+        externalLink: 'https://us.example/jobs/1',
+        postedDate: new Date(now - 60_000).toISOString(),
+        status: 'active',
+        sourceType: 'Aggregated',
+        isVerified: false,
+        locationCountry: 'United States',
+        clicks: 0
+      },
+      {
+        id: 'stale',
+        companyName: 'Old Co',
+        companyWebsite: 'https://old.example',
+        roleTitle: 'Old Role',
+        externalLink: 'https://old.example/jobs/1',
+        postedDate: new Date(now - 13 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'active',
+        sourceType: 'Aggregated',
+        isVerified: false,
+        locationCountry: 'Canada',
+        clicks: 0
+      }
+    ];
+
+    const { jobs: result, meta } = applyAggregatedFeedPolicy([...canadaRecent, ...staleAndForeign], now);
+
+    expect(result).toHaveLength(AGGREGATED_MAX_RESULTS);
+    expect(result.some((job) => job.id === 'foreign')).toBe(false);
+    expect(result.some((job) => job.id === 'stale')).toBe(false);
+    const byCompany = result.reduce<Record<string, number>>((acc, job) => {
+      acc[job.companyName] = (acc[job.companyName] || 0) + 1;
+      return acc;
+    }, {});
+    expect(Math.max(...Object.values(byCompany))).toBeLessThanOrEqual(AGGREGATED_COMPANY_CAP);
+    expect(meta.policy.maxResults).toBe(AGGREGATED_MAX_RESULTS);
+    expect(meta.aggregatedPolicyApplied).toBe(true);
   });
 });

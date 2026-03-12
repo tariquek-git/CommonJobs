@@ -4,13 +4,25 @@ import { requestJson, requestVoid } from './apiClient';
 const JOB_SEARCH_CACHE_TTL_MS = 15_000;
 
 type FeedType = 'direct' | 'aggregated';
+type AggregatedPolicyMeta = {
+  aggregatedPolicyApplied: boolean;
+  companyCapApplied: boolean;
+  aggregatedCounts: { beforePolicy: number; afterPolicy: number };
+  policy: {
+    country: 'Canada';
+    maxAgeDays: number;
+    maxResults: number;
+    maxPerCompany: number;
+  } | null;
+};
+
 type JobsSearchResponse = {
   jobs: JobPosting[];
   total: number;
   page: number;
   pageSize: number;
   facets: JobSearchFacets;
-  meta?: { companyCapApplied?: boolean };
+  meta?: AggregatedPolicyMeta;
 };
 type CacheEntry = { at: number; response: JobsSearchResponse };
 

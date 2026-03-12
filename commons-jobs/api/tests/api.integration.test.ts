@@ -190,13 +190,14 @@ describe('API integration', () => {
       page: number;
       pageSize: number;
       facets: { remotePolicies: Record<string, number> };
-      meta: { companyCapApplied: boolean };
+      meta: { companyCapApplied: boolean; aggregatedPolicyApplied: boolean };
     };
     expect(body.total).toBeGreaterThanOrEqual(body.jobs.length);
     expect(body.page).toBe(1);
     expect(body.pageSize).toBe(1);
     expect(body.facets.remotePolicies).toBeTruthy();
     expect(body.meta.companyCapApplied).toBe(false);
+    expect(body.meta.aggregatedPolicyApplied).toBe(false);
 
     await app.close();
   });
@@ -213,6 +214,7 @@ describe('API integration', () => {
       status: 'active',
       sourceType: 'Aggregated',
       isVerified: false,
+      locationCountry: 'Canada',
       clicks: 0
     }));
     const uniqueJob: JobPosting = {
@@ -225,6 +227,7 @@ describe('API integration', () => {
       status: 'active',
       sourceType: 'Aggregated',
       isVerified: false,
+      locationCountry: 'Canada',
       clicks: 0
     };
 
@@ -247,11 +250,119 @@ describe('API integration', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { jobs: JobPosting[]; total: number; meta: { companyCapApplied: boolean } };
+    const body = res.json() as {
+      jobs: JobPosting[];
+      total: number;
+      meta: {
+        companyCapApplied: boolean;
+        aggregatedPolicyApplied: boolean;
+        aggregatedCounts: { beforePolicy: number; afterPolicy: number };
+        policy: { country: string; maxAgeDays: number; maxResults: number; maxPerCompany: number };
+      };
+    };
     expect(body.meta.companyCapApplied).toBe(true);
+    expect(body.meta.aggregatedPolicyApplied).toBe(true);
+    expect(body.meta.policy.country).toBe('Canada');
+    expect(body.meta.policy.maxAgeDays).toBe(12);
+    expect(body.meta.policy.maxResults).toBe(50);
+    expect(body.meta.policy.maxPerCompany).toBe(5);
+    expect(body.meta.aggregatedCounts.beforePolicy).toBe(8);
+    expect(body.meta.aggregatedCounts.afterPolicy).toBe(6);
     expect(body.total).toBe(6);
     expect(body.jobs.filter((job) => job.companyName === 'RepeatCo')).toHaveLength(5);
     expect(body.jobs.some((job) => job.companyName === 'UniqueCo')).toBe(true);
+
+    await app.close();
+  });
+
+  it('aggregated search enforces Canada-only, 12-day freshness, and max 50 results', async () => {
+    const now = Date.now();
+    const activeCanadaRecent: JobPosting[] = Array.from({ length: 66 }).map((_, index) => ({
+      id: `agg-recent-${index}`,
+      companyName: `Company-${Math.floor(index / 6)}`,
+      companyWebsite: 'https://company.example',
+      roleTitle: `Recent role ${index}`,
+      externalLink: `https://company.example/jobs/${index}`,
+      postedDate: new Date(now - index * 60_000).toISOString(),
+      status: 'active',
+      sourceType: 'Aggregated',
+      isVerified: false,
+      locationCountry: 'Canada',
+      clicks: 0
+    }));
+
+    const staleOrForeign: JobPosting[] = [
+      {
+        id: 'agg-old',
+        companyName: 'OldCo',
+        companyWebsite: 'https://old.co',
+        roleTitle: 'Old role',
+        externalLink: 'https://old.co/jobs/1',
+        postedDate: new Date(now - 13 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'active',
+        sourceType: 'Aggregated',
+        isVerified: false,
+        locationCountry: 'Canada',
+        clicks: 0
+      },
+      {
+        id: 'agg-us',
+        companyName: 'USCo',
+        companyWebsite: 'https://us.co',
+        roleTitle: 'US role',
+        externalLink: 'https://us.co/jobs/1',
+        postedDate: new Date(now - 1_000).toISOString(),
+        status: 'active',
+        sourceType: 'Aggregated',
+        isVerified: false,
+        locationCountry: 'United States',
+        clicks: 0
+      }
+    ];
+
+    const app = buildApp(new InMemoryJobRepository([...activeCanadaRecent, ...staleOrForeign]), new InMemoryClickRepository(), buildTestEnv());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/jobs/search',
+      payload: {
+        feedType: 'aggregated',
+        sort: 'newest',
+        page: 1,
+        pageSize: 60,
+        filters: {
+          keyword: '',
+          remotePolicies: [],
+          seniorityLevels: [],
+          employmentTypes: [],
+          dateRange: 'all',
+          locations: []
+        }
+      }
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      jobs: JobPosting[];
+      total: number;
+      meta: {
+        aggregatedPolicyApplied: boolean;
+        aggregatedCounts: { beforePolicy: number; afterPolicy: number };
+      };
+    };
+
+    expect(body.meta.aggregatedPolicyApplied).toBe(true);
+    expect(body.meta.aggregatedCounts.beforePolicy).toBe(68);
+    expect(body.meta.aggregatedCounts.afterPolicy).toBe(50);
+    expect(body.total).toBe(50);
+    expect(body.jobs).toHaveLength(50);
+    expect(body.jobs.some((job) => job.id === 'agg-old')).toBe(false);
+    expect(body.jobs.some((job) => job.id === 'agg-us')).toBe(false);
+    const companyCounts = body.jobs.reduce<Record<string, number>>((acc, job) => {
+      acc[job.companyName] = (acc[job.companyName] || 0) + 1;
+      return acc;
+    }, {});
+    expect(Math.max(...Object.values(companyCounts))).toBeLessThanOrEqual(5);
 
     await app.close();
   });

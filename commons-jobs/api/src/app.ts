@@ -6,7 +6,7 @@ import { AppEnv, parseAllowedOrigins } from './config/env.js';
 import { checkRateLimit } from './lib/rateLimit.js';
 import { applySecurityHeaders } from './lib/securityHeaders.js';
 import { badRequest, notFound, tooManyRequests, unauthorized } from './lib/http.js';
-import { AGGREGATED_COMPANY_CAP, applyCompanyDiversityCap, buildSearchFacets, filterPublicJobs, sortPublicJobs } from './services/filterJobs.js';
+import { applyAggregatedFeedPolicy, buildSearchFacets, filterPublicJobs, sortPublicJobs } from './services/filterJobs.js';
 import {
   adminCreateJobSchema,
   adminStatusSchema,
@@ -251,10 +251,19 @@ export const buildApp = (
     const jobs = await repository.list();
     const filtered = filterPublicJobs(jobs, parsed.data.filters, parsed.data.feedType, 'newest');
     const hydrated = await hydrateClicks(filtered);
-    const visibleJobs =
+    const policyResult =
       parsed.data.feedType === 'aggregated'
-        ? applyCompanyDiversityCap(sortPublicJobs(hydrated, 'newest', 'aggregated'), AGGREGATED_COMPANY_CAP)
-        : hydrated;
+        ? applyAggregatedFeedPolicy(hydrated)
+        : {
+            jobs: hydrated,
+            meta: {
+              aggregatedPolicyApplied: false,
+              companyCapApplied: false,
+              aggregatedCounts: { beforePolicy: hydrated.length, afterPolicy: hydrated.length },
+              policy: null
+            }
+          };
+    const visibleJobs = policyResult.jobs;
     const sorted = sortPublicJobs(visibleJobs, parsed.data.sort, parsed.data.feedType);
     const total = sorted.length;
     const page = parsed.data.page;
@@ -262,7 +271,6 @@ export const buildApp = (
     const offset = (page - 1) * pageSize;
     const pagedJobs = sorted.slice(offset, offset + pageSize);
     const facets = buildSearchFacets(visibleJobs);
-    const companyCapApplied = parsed.data.feedType === 'aggregated' && visibleJobs.length < hydrated.length;
 
     return {
       jobs: pagedJobs.map(toPublicJob),
@@ -270,9 +278,7 @@ export const buildApp = (
       page,
       pageSize,
       facets,
-      meta: {
-        companyCapApplied
-      }
+      meta: policyResult.meta
     };
   });
 

@@ -4,6 +4,11 @@ const REMOTE_POLICY_VALUES: RemotePolicy[] = ['Onsite', 'Hybrid', 'Remote'];
 const EMPLOYMENT_TYPE_VALUES: EmploymentType[] = ['Full-time', 'Contract', 'Internship'];
 const SENIORITY_VALUES: SeniorityLevel[] = ['Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive'];
 export const AGGREGATED_COMPANY_CAP = 5;
+export const AGGREGATED_MAX_AGE_DAYS = 12;
+export const AGGREGATED_MAX_RESULTS = 50;
+export const AGGREGATED_POLICY_COUNTRY = 'Canada';
+
+const AGGREGATED_MAX_AGE_MS = AGGREGATED_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
 const withinDateRange = (postedDate: string, range: JobFilterState['dateRange']) => {
   if (range === 'all') return true;
@@ -15,6 +20,76 @@ const withinDateRange = (postedDate: string, range: JobFilterState['dateRange'])
   if (range === '7d') return diffMs <= 7 * 24 * 60 * 60 * 1000;
   if (range === '30d') return diffMs <= 30 * 24 * 60 * 60 * 1000;
   return true;
+};
+
+const isCanadianLocation = (value?: string): boolean => {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized === 'canada' || normalized === 'ca' || normalized === 'can') return true;
+  return normalized.includes('canada');
+};
+
+const resolveFreshnessTimestamp = (postedDate: string, nowMs: number): number => {
+  const parsed = new Date(postedDate).getTime();
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    // Unknown source dates are treated as "fresh now" (ingested timestamp fallback).
+    return nowMs;
+  }
+  return parsed;
+};
+
+export type AggregatedPolicyMeta = {
+  aggregatedPolicyApplied: boolean;
+  companyCapApplied: boolean;
+  aggregatedCounts: {
+    beforePolicy: number;
+    afterPolicy: number;
+  };
+  policy: {
+    country: typeof AGGREGATED_POLICY_COUNTRY;
+    maxAgeDays: typeof AGGREGATED_MAX_AGE_DAYS;
+    maxResults: typeof AGGREGATED_MAX_RESULTS;
+    maxPerCompany: typeof AGGREGATED_COMPANY_CAP;
+  };
+};
+
+export const applyAggregatedFeedPolicy = (
+  jobs: JobPosting[],
+  nowMs = Date.now()
+): { jobs: JobPosting[]; meta: AggregatedPolicyMeta } => {
+  const beforePolicy = jobs.length;
+  const newestFirst = sortPublicJobs(jobs, 'newest', 'aggregated');
+  const canadianRecent = newestFirst.filter((job) => {
+    const timestamp = resolveFreshnessTimestamp(job.postedDate, nowMs);
+    const ageMs = nowMs - timestamp;
+    const isFreshEnough = ageMs <= AGGREGATED_MAX_AGE_MS;
+    const inCanada = isCanadianLocation(job.locationCountry) || isCanadianLocation(job.region);
+    return isFreshEnough && inCanada;
+  });
+  const diversified = applyCompanyDiversityCap(canadianRecent, AGGREGATED_COMPANY_CAP);
+  const capped = diversified.slice(0, AGGREGATED_MAX_RESULTS);
+
+  const aggregatedPolicyApplied = capped.length < beforePolicy || canadianRecent.length < beforePolicy;
+  const companyCapApplied = diversified.length < canadianRecent.length;
+
+  return {
+    jobs: capped,
+    meta: {
+      aggregatedPolicyApplied,
+      companyCapApplied,
+      aggregatedCounts: {
+        beforePolicy,
+        afterPolicy: capped.length
+      },
+      policy: {
+        country: AGGREGATED_POLICY_COUNTRY,
+        maxAgeDays: AGGREGATED_MAX_AGE_DAYS,
+        maxResults: AGGREGATED_MAX_RESULTS,
+        maxPerCompany: AGGREGATED_COMPANY_CAP
+      }
+    }
+  };
 };
 
 export const filterPublicJobs = (
