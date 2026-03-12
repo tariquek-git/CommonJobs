@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { JobPosting } from '../types';
-import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot } from 'lucide-react';
+import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { getPostedAgeDays, getPostedDateLabel } from '../utils/dateLabel';
 import { getCompanyLogoUrl } from '../utils/companyLogo';
 
@@ -25,6 +25,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const days = getPostedAgeDays(job.postedDate);
   const isHot = typeof days === 'number' && days <= 5;
   const isAggregated = job.sourceType === 'Aggregated';
+  const isDirect = job.sourceType === 'Direct';
   const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
 
   return (
@@ -83,10 +84,23 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
       {/* Metadata Row */}
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 mb-5">
-        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#eef7f6] text-[#0f766e] border border-[#d7efec]">
-          <Globe size={10} className="text-[#2a9f96]" />
-          via {job.externalSource || 'Direct'}
-        </div>
+        {isDirect ? (
+          <>
+            <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+              <ShieldCheck size={10} />
+              Community reviewed
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#eef7f6] text-[#0f766e] border border-[#d7efec]">
+              <HeartHandshake size={10} className="text-[#2a9f96]" />
+              Warm intro possible
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#eef7f6] text-[#0f766e] border border-[#d7efec]">
+            <Globe size={10} className="text-[#2a9f96]" />
+            via {job.externalSource || 'Direct'}
+          </div>
+        )}
         {(job.locationCity || job.locationCountry) && (
             <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gray-100 text-gray-700">
                 <MapPin size={10} className="text-gray-400"/>
@@ -121,6 +135,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
                 <Clock size={12} />
                 <span>{dateLabel}</span>
            </div>
+           {isDirect && (
+             <div className="text-[11px] text-[#0f766e]">Warm intro available via Commons</div>
+           )}
         </div>
 
         {/* Visual Button - Click actually bubbles to container */}

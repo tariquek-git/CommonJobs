@@ -2,10 +2,11 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { JobPosting } from '../types';
 import { trackClick } from '../services/jobService';
-import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap } from 'lucide-react';
+import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { getPostedDateLabel } from '../utils/dateLabel';
 import { getCompanyLogoUrl } from '../utils/companyLogo';
 import { buildFeedbackMailto } from '../utils/feedbackMailto';
+import { CONTACT_EMAIL } from '../siteConfig';
 
 interface JobDetailModalProps {
   job: JobPosting;
@@ -17,6 +18,12 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const isDirect = job.sourceType === 'Direct';
+  const introRequestHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+    `Intro request: ${job.roleTitle} @ ${job.companyName}`
+  )}&body=${encodeURIComponent(
+    `Hi,\n\nI would like an intro for this role.\n\nJob ID: ${job.id}\nRole: ${job.roleTitle}\nCompany: ${job.companyName}\nApply link: ${job.externalLink}\n\nThanks!`
+  )}`;
 
   const getFocusableElements = (): HTMLElement[] => {
     if (!dialogRef.current) return [] as HTMLElement[];
@@ -129,6 +136,11 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                                 <CheckCircle2 size={10} /> Verified
                              </span>
                         )}
+                        {isDirect && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-[#eef7f6] text-[#0f766e] px-1.5 py-0.5 rounded-full border border-[#d7efec] font-bold uppercase tracking-wider">
+                            <ShieldCheck size={10} /> Community reviewed
+                          </span>
+                        )}
                     </div>
                   </div>
                   <button
@@ -146,6 +158,17 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
 
         {/* Scrollable Body */}
         <div className="overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-gray-200">
+            {isDirect && (
+              <div className="rounded-xl border border-[#cdece8] bg-[#f4fbfa] p-4 text-sm text-[#0b5f58]">
+                <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide">
+                  <HeartHandshake size={12} />
+                  Warm intro possible
+                </div>
+                <p className="mt-1 text-xs">
+                  This role came through the community board. If you’re a fit, you can request an intro from Fintech Commons.
+                </p>
+              </div>
+            )}
             
             {/* Metadata Grid */}
             <div className="flex flex-wrap gap-3">
@@ -210,6 +233,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
         <div className="p-4 border-t border-gray-200 bg-white sticky bottom-0 flex items-center justify-between gap-4 z-20">
             <div className="hidden md:flex flex-col gap-1 text-xs text-gray-500">
                 <div>via {job.externalSource || 'Direct'}</div>
+                {isDirect && (
+                  <a
+                    className="text-[#0f766e] underline underline-offset-2 hover:text-[#0a5a54]"
+                    href={introRequestHref}
+                  >
+                    Request intro
+                  </a>
+                )}
                 <a
                   className="text-gray-700 underline underline-offset-2 hover:text-gray-900"
                   href={buildFeedbackMailto({ jobId: job.id, pageUrl: typeof window !== 'undefined' ? window.location.href : undefined })}
@@ -217,14 +248,24 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                   Report an issue
                 </a>
             </div>
-            <button 
-                type="button"
-                onClick={handleApply}
-                className="w-full md:w-auto flex-1 md:flex-none px-6 py-3.5 bg-gray-900 hover:bg-blue-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-            >
-                Apply on Company Site 
-                <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>
-            </button>
+            <div className="w-full md:w-auto flex flex-col md:flex-row gap-2">
+              {isDirect && (
+                <a
+                  href={introRequestHref}
+                  className="md:hidden w-full px-6 py-3 text-center rounded-xl border border-[#cdece8] bg-[#f4fbfa] text-[#0b5f58] font-bold text-sm"
+                >
+                  Request intro
+                </a>
+              )}
+              <button 
+                  type="button"
+                  onClick={handleApply}
+                  className="w-full md:w-auto flex-1 md:flex-none px-6 py-3.5 bg-gray-900 hover:bg-blue-600 text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              >
+                  Apply on Company Site 
+                  <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>
+              </button>
+            </div>
         </div>
 
       </div>

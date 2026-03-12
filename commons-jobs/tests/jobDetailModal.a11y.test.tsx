@@ -35,6 +35,7 @@ describe('JobDetailModal accessibility', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByRole('button', { name: 'Close job details' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /report an issue/i })).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /request intro/i }).length).toBeGreaterThan(0);
   });
 
   it('focuses the close button on mount', () => {
@@ -63,5 +64,16 @@ describe('JobDetailModal accessibility', () => {
 
     fireEvent.keyDown(window, { key: 'Tab' });
     expect(document.activeElement).toBe(closeButton);
+  });
+
+  it('does not show intro CTA for aggregated roles', () => {
+    render(
+      <JobDetailModal
+        job={{ ...baseJob, sourceType: 'Aggregated', externalSource: 'Bank Feed', isVerified: false }}
+        onClose={() => {}}
+      />
+    );
+
+    expect(screen.queryByRole('link', { name: /request intro/i })).toBeNull();
   });
 });
