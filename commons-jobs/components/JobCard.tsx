@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { JobPosting } from '../types';
 import { MapPin, ArrowUpRight, Building2, Clock, Globe, Bot, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { getPostedAgeDays, getPostedDateLabel } from '../utils/dateLabel';
-import { getCompanyLogoUrl } from '../utils/companyLogo';
+import { getCompanyLogoCandidates } from '../utils/companyLogo';
 
 interface JobCardProps {
   job: JobPosting;
@@ -12,6 +12,7 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const [imgError, setImgError] = useState(false);
+  const [logoIndex, setLogoIndex] = useState(0);
 
   const getLocationString = () => {
     const parts = [];
@@ -26,7 +27,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
   const isHot = typeof days === 'number' && days <= 5;
   const isAggregated = job.sourceType === 'Aggregated';
   const isDirect = job.sourceType === 'Direct';
-  const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
+  const logoCandidates = getCompanyLogoCandidates(job.companyWebsite, job.externalLink);
+  const logoUrl = logoCandidates[logoIndex] ?? null;
+
+  useEffect(() => {
+    setImgError(false);
+    setLogoIndex(0);
+  }, [job.id, job.companyWebsite, job.externalLink]);
 
   return (
     <article
@@ -52,7 +59,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
                 src={logoUrl}
                 alt={`${job.companyName} logo`} 
                 className="w-full h-full object-contain relative z-10 bg-white"
-                onError={() => setImgError(true)}
+                onError={() => {
+                  if (logoIndex < logoCandidates.length - 1) {
+                    setLogoIndex((prev) => prev + 1);
+                    return;
+                  }
+                  setImgError(true);
+                }}
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"

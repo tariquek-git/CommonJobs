@@ -34,7 +34,7 @@ describe('App accessibility', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('renders a skip link, labeled search input, and expanded state on filters button', async () => {
+  it('renders a skip link, feedback action, and expanded state on filters button', async () => {
     render(<App />);
 
     await waitFor(() => {
@@ -42,7 +42,7 @@ describe('App accessibility', () => {
     });
 
     expect(screen.getByText('Skip to main content')).toBeTruthy();
-    expect(screen.getByLabelText('Search jobs')).toBeTruthy();
+    expect(screen.queryByLabelText('Search jobs')).toBeNull();
     expect(screen.getByRole('link', { name: /send beta feedback/i })).toBeTruthy();
 
     const filtersButton = screen.getByRole('button', { name: /filters/i });

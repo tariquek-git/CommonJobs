@@ -4,7 +4,7 @@ import { JobPosting } from '../types';
 import { trackClick } from '../services/jobService';
 import { X, MapPin, Building2, Clock, ArrowUpRight, CheckCircle2, DollarSign, Briefcase, Zap, ShieldCheck, HeartHandshake } from 'lucide-react';
 import { getPostedDateLabel } from '../utils/dateLabel';
-import { getCompanyLogoUrl } from '../utils/companyLogo';
+import { getCompanyLogoCandidates } from '../utils/companyLogo';
 import { buildFeedbackMailto } from '../utils/feedbackMailto';
 import { CONTACT_EMAIL } from '../siteConfig';
 
@@ -15,6 +15,7 @@ interface JobDetailModalProps {
 
 const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
   const [imgError, setImgError] = useState(false);
+  const [logoIndex, setLogoIndex] = useState(0);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,11 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
     };
   }, [onClose]);
 
+  useEffect(() => {
+    setImgError(false);
+    setLogoIndex(0);
+  }, [job.id, job.companyWebsite, job.externalLink]);
+
   const handleApply = () => {
     trackClick(job.id);
     let targetUrl = job.externalLink;
@@ -89,7 +95,8 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const logoUrl = getCompanyLogoUrl(job.companyWebsite, job.externalLink);
+  const logoCandidates = getCompanyLogoCandidates(job.companyWebsite, job.externalLink);
+  const logoUrl = logoCandidates[logoIndex] ?? null;
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-center items-end md:items-center sm:p-4">
@@ -117,7 +124,13 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose }) => {
                   src={logoUrl}
                   alt={`${job.companyName} logo`} 
                   className="w-full h-full object-contain relative z-10 bg-white"
-                  onError={() => setImgError(true)}
+                  onError={() => {
+                    if (logoIndex < logoCandidates.length - 1) {
+                      setLogoIndex((prev) => prev + 1);
+                      return;
+                    }
+                    setImgError(true);
+                  }}
                   loading="lazy"
                   decoding="async"
                   referrerPolicy="no-referrer"

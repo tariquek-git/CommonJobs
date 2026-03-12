@@ -5,10 +5,8 @@ import JobFilters from './components/JobFilters';
 import JobCard from './components/JobCard';
 import { JobFilterState, JobPosting, JobSearchFacets, JobSortOption } from './types';
 import { getJobs, getJobById, adminLogin, adminLogout, refreshAdminSession } from './services/jobService';
-import { parseSearchQuery } from './services/geminiService';
-import { normalizeParsedSearchFilters } from './utils/normalizeSearchFilters';
 import { CONTACT_EMAIL } from './siteConfig';
-import { Search, Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, ChevronDown, Hexagon, X, Filter, Globe, Users, MessageSquare, ShieldCheck } from 'lucide-react';
 import { buildFeedbackMailto } from './utils/feedbackMailto';
 
 const SubmitJobForm = React.lazy(() => import('./components/SubmitJobForm'));
@@ -61,11 +59,6 @@ const App: React.FC = () => {
   const adminModalRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // AI Search States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isProcessingAI, setIsProcessingAI] = useState(false);
-  const [searchUsedFallback, setSearchUsedFallback] = useState(false);
-  const keywordDebounceRef = useRef<number | null>(null);
   const [founderNoteExpanded, setFounderNoteExpanded] = useState(() => {
     if (typeof window === 'undefined') return true;
     try {
@@ -98,13 +91,7 @@ const App: React.FC = () => {
     // 1. Parse URL params on mount
     const params = new URLSearchParams(window.location.search);
     const jobId = params.get('jobId');
-    const keyword = params.get('keyword');
     const feed = params.get('feed');
-
-    if (keyword) {
-        setSearchQuery(keyword);
-        setFilters(prev => ({ ...prev, keyword, page: 1 }));
-    }
 
     if (feed === 'aggregated') {
         setFeedType('aggregated');
@@ -292,60 +279,6 @@ const App: React.FC = () => {
     setSelectedJob(job);
   }, []);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSearchQuery(val);
-    if (!val.trim()) {
-      setSearchUsedFallback(false);
-    }
-    if (keywordDebounceRef.current) {
-      window.clearTimeout(keywordDebounceRef.current);
-    }
-    keywordDebounceRef.current = window.setTimeout(() => {
-      setFilters((prev) => ({ ...prev, keyword: val.trim(), page: 1 }));
-    }, 250);
-  };
-
-  const clearSearch = () => {
-      if (keywordDebounceRef.current) {
-        window.clearTimeout(keywordDebounceRef.current);
-        keywordDebounceRef.current = null;
-      }
-      setSearchQuery('');
-      setSearchUsedFallback(false);
-      setFilters(prev => ({ ...prev, keyword: '', page: 1 }));
-  };
-
-  const handleKeyDown = async (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchQuery.trim().length > 2) {
-        if (keywordDebounceRef.current) {
-          window.clearTimeout(keywordDebounceRef.current);
-          keywordDebounceRef.current = null;
-        }
-        setIsProcessingAI(true);
-        try {
-	            const parsedResponse = await parseSearchQuery(searchQuery);
-            setSearchUsedFallback(Boolean(parsedResponse?.fallback));
-	            const normalized = normalizeParsedSearchFilters(parsedResponse?.result ?? null);
-	            if (normalized) {
-                const nextKeyword = normalized.keyword || '';
-                setSearchQuery(nextKeyword);
-	                setFilters(prev => ({
-		                  ...prev,
-	                  keyword: nextKeyword,
-	                  remotePolicies: normalized.remotePolicies,
-	                  employmentTypes: normalized.employmentTypes,
-	                  seniorityLevels: normalized.seniorityLevels,
-	                  dateRange: normalized.dateRange || 'all',
-	                  page: 1
-	                }));
-	            }
-	        } finally {
-	            setIsProcessingAI(false);
-	        }
-    }
-  };
-
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -467,49 +400,6 @@ const App: React.FC = () => {
 	        </aside>
 
         <div className="flex-1 w-full">
-            {/* Minimalist Search */}
-            <div className="relative mb-6">
-               <label htmlFor="job-search" className="sr-only">Search jobs</label>
-               <div className="relative flex items-center">
-                  <Search className="absolute left-4 text-gray-400" size={20} />
-                  <input
-                    id="job-search"
-                    type="text"
-                    placeholder={feedType === 'aggregated' ? "Search Canadian Fintech (e.g. Wealthsimple)..." : "Describe your ideal role (e.g. 'Remote React jobs')..."}
-                    className="w-full pl-12 pr-12 py-4 bg-white border border-gray-200 rounded-xl text-lg text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#2EC4B6] focus:border-[#2EC4B6] outline-none transition-all shadow-sm"
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    onKeyDown={handleKeyDown}
-                    aria-describedby="job-search-help"
-                  />
-                  <span id="job-search-help" className="sr-only">Type keywords to filter. Press Enter to let AI parse your search.</span>
-                  {searchQuery && !isProcessingAI && (
-                      <button type="button" onClick={clearSearch} className="absolute right-4 text-gray-400 hover:text-gray-600" aria-label="Clear search text">
-                          <X size={20} />
-                      </button>
-                  )}
-                  {isProcessingAI && (
-                      <div className="absolute right-4">
-                          <Loader2 className="animate-spin text-[#0f766e]" size={20} />
-                      </div>
-                  )}
-               </div>
-               {searchUsedFallback && (
-                 <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                   AI model unavailable, using fallback extraction.
-                 </p>
-               )}
-               <div className="mt-3 flex items-center justify-end">
-                 <a
-                   href={feedbackHref}
-                   className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-300 hover:text-gray-900"
-                 >
-                   <MessageSquare size={14} />
-                   Send feedback
-                 </a>
-               </div>
-            </div>
-
             {/* Feed Toggle */}
             <div className="flex items-center gap-2 mb-6">
                 <button
@@ -550,39 +440,48 @@ const App: React.FC = () => {
                 </button>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <label htmlFor="sort-jobs" className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                Sort
-              </label>
-              <select
-                id="sort-jobs"
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
-                value={filters.sort}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, sort: event.target.value as JobSortOption, page: 1 }))
-                }
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <label htmlFor="sort-jobs" className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  Sort
+                </label>
+                <select
+                  id="sort-jobs"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                  value={filters.sort}
+                  onChange={(event) =>
+                    setFilters((prev) => ({ ...prev, sort: event.target.value as JobSortOption, page: 1 }))
+                  }
+                >
+                  <option value="newest">Newest</option>
+                  <option value="most_clicked" disabled={feedType === 'aggregated'}>
+                    Most clicked{feedType === 'aggregated' ? ' (Direct only)' : ''}
+                  </option>
+                  <option value="company_az">Company A-Z</option>
+                </select>
+                {activeFilterPills.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activeFilterPills.map((pill) => (
+                      <button
+                        key={pill.key}
+                        type="button"
+                        onClick={pill.onRemove}
+                        className="inline-flex items-center gap-1 rounded-full border border-[#cdece8] bg-[#f4fbfa] px-2.5 py-1 text-xs font-semibold text-[#0b5f58]"
+                      >
+                        {pill.label}
+                        <X size={12} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <a
+                href={feedbackHref}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-300 hover:text-gray-900"
               >
-                <option value="newest">Newest</option>
-                <option value="most_clicked" disabled={feedType === 'aggregated'}>
-                  Most clicked{feedType === 'aggregated' ? ' (Direct only)' : ''}
-                </option>
-                <option value="company_az">Company A-Z</option>
-              </select>
-              {activeFilterPills.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {activeFilterPills.map((pill) => (
-                    <button
-                      key={pill.key}
-                      type="button"
-                      onClick={pill.onRemove}
-                      className="inline-flex items-center gap-1 rounded-full border border-[#cdece8] bg-[#f4fbfa] px-2.5 py-1 text-xs font-semibold text-[#0b5f58]"
-                    >
-                      {pill.label}
-                      <X size={12} />
-                    </button>
-                  ))}
-                </div>
-              )}
+                <MessageSquare size={14} />
+                Send feedback
+              </a>
             </div>
 
             {/* Feed Info / Disclaimer */}

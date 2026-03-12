@@ -41,7 +41,7 @@ describe('App admin navigation', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Search jobs')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Admin Dashboard' })).toBeTruthy();
     });
 
     expect(screen.getByRole('button', { name: 'Admin Dashboard' })).toBeTruthy();

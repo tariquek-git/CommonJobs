@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { getJobs } from '../services/jobService';
-import { parseSearchQuery } from '../services/geminiService';
 
 vi.mock('../services/jobService', () => ({
   getJobs: vi.fn(),
@@ -18,7 +17,7 @@ vi.mock('../services/geminiService', () => ({
   parseSearchQuery: vi.fn().mockResolvedValue(null)
 }));
 
-describe('App AI search sync', () => {
+describe('App browse header controls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getJobs).mockResolvedValue({
@@ -34,30 +33,15 @@ describe('App AI search sync', () => {
     });
   });
 
-  it('keeps input text synchronized with parsed AI keyword', async () => {
-    vi.mocked(parseSearchQuery).mockResolvedValueOnce({
-      fallback: false,
-      result: {
-        keyword: 'risk engineer',
-        remotePolicies: ['Remote'],
-        employmentTypes: ['Full-time'],
-        seniorityLevels: ['Senior'],
-        dateRange: '7d'
-      }
-    });
-
+  it('hides the search bar and still renders sort and feedback controls', async () => {
     render(<App />);
 
-    const input = screen.getByLabelText('Search jobs') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'remote fintech roles' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
     await waitFor(() => {
-      expect(input.value).toBe('risk engineer');
+      expect(vi.mocked(getJobs)).toHaveBeenCalled();
     });
 
-    await waitFor(() => {
-      expect(vi.mocked(getJobs).mock.calls.some((call) => call[0]?.keyword === 'risk engineer')).toBe(true);
-    });
+    expect(screen.queryByLabelText('Search jobs')).toBeNull();
+    expect(screen.getByLabelText('Sort')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /send feedback/i })).toBeTruthy();
   });
 });
