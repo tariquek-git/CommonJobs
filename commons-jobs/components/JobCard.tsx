@@ -30,17 +30,25 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
 
   return (
     <article
-      className={`group h-full overflow-hidden rounded-[16px] border bg-[var(--cj-surface-elevated)] shadow-[var(--cj-shadow-soft)] transition-premium hover:-translate-y-[1px] hover:shadow-[var(--cj-shadow-elevated)] ${
-        isAggregated ? 'border-[#cce3df]' : 'border-[var(--cj-stroke-soft)]'
+      className={`group relative h-full overflow-hidden rounded-[18px] border bg-[var(--cj-surface-elevated)] shadow-[var(--cj-shadow-soft)] transition-premium hover:-translate-y-[2px] hover:shadow-[var(--cj-shadow-elevated)] ${
+        isAggregated ? 'border-[#c8e6e0]' : 'border-[var(--cj-stroke-soft)]'
       }`}
     >
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-x-0 top-0 h-14 ${
+          isDirect
+            ? 'bg-[linear-gradient(180deg,rgba(24,59,132,0.08),transparent)]'
+            : 'bg-[linear-gradient(180deg,rgba(53,206,184,0.12),transparent)]'
+        }`}
+      />
       <button
         type="button"
         onClick={() => onSelect(job)}
-        className="flex h-full w-full flex-col p-5 text-left focus-visible:focus-ring md:p-6"
+        className="relative z-10 flex h-full w-full flex-col p-5 text-left focus-visible:focus-ring md:p-6"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[12px] border border-[var(--cj-stroke-soft)] bg-[#f8fafd]">
+          <div className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-[13px] border border-[var(--cj-stroke-soft)] bg-[#f8fafd]">
             <Building2 size={20} className="absolute text-[#9cabc1]" />
             {!imgError && logoUrl && (
               <img
@@ -84,6 +92,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-[var(--cj-text-muted)]">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${
+              isDirect ? 'border-[#d8e8ff] bg-[#f5f9ff] text-[#2f5c9b]' : 'border-[#cdece8] bg-[#f1faf8] text-[#0f766e]'
+            }`}
+          >
+            {isDirect ? <ShieldCheck size={11} /> : <Globe size={11} />}
+            {isDirect ? 'Verified' : 'Market'}
+          </span>
           {location && (
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--cj-stroke-soft)] bg-[#f7fafc] px-2.5 py-1">
               <MapPin size={11} />
@@ -98,7 +114,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
         </div>
 
         <div
-          className={`mb-5 min-h-[108px] rounded-[12px] border px-3.5 py-3 ${
+          className={`mb-5 min-h-[116px] rounded-[12px] border px-3.5 py-3 ${
             isAggregated ? 'border-[#d5ebe7] bg-[#f3fbf9]' : 'border-[#e5ecf1] bg-[#f8fafd]'
           }`}
         >

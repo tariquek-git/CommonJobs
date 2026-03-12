@@ -330,12 +330,12 @@ const App: React.FC = () => {
     
     // Browse View
     return (
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-8">
-        <aside className="w-full self-start lg:sticky lg:top-24">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[330px_minmax(0,1fr)] xl:gap-8">
+        <aside className="w-full self-start lg:sticky lg:top-28">
           <button
             type="button"
             onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className="cj-surface-elevated mb-3 flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--cj-text-primary)] md:hidden"
+            className="cj-glass mb-3 flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--cj-text-primary)] md:hidden"
             aria-expanded={showMobileFilters}
             aria-controls="browse-filters-panel"
           >
@@ -355,11 +355,11 @@ const App: React.FC = () => {
             id="browse-filters-panel"
             className={`${showMobileFilters ? 'block' : 'hidden'} md:block animate-slide-up md:animate-none lg:max-h-[calc(100vh-7.25rem)] lg:overflow-y-auto lg:pr-1`}
           >
-            <div className="cj-surface-base p-4 md:p-5">
+            <div className="cj-glass p-4 md:p-5">
               <JobFilters filters={filters} facets={facets} setFilters={setFilters} />
             </div>
 
-            <div className="cj-surface-base mt-4 p-4">
+            <div className="cj-glass mt-4 p-4">
               <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">Admin & Info</h3>
               <div className="flex flex-col items-start gap-2">
                 <button
@@ -416,7 +416,7 @@ const App: React.FC = () => {
         </aside>
 
         <section className="min-w-0">
-          <div className="mb-5 inline-flex rounded-[14px] border border-[var(--cj-stroke-soft)] bg-white p-1 shadow-[var(--cj-shadow-soft)]">
+          <div className="cj-glass mb-5 inline-flex p-1">
             <button
               type="button"
               onClick={() => {
@@ -451,7 +451,11 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <div className="cj-surface-elevated mb-5 animate-fade-in p-4 md:p-5">
+          <div className="cj-glass relative mb-5 animate-fade-in overflow-hidden p-4 md:p-5">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 h-24 w-40 rounded-bl-[2rem] bg-[radial-gradient(circle_at_top_right,rgba(53,206,184,0.22),transparent_70%)]"
+            />
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
@@ -470,6 +474,14 @@ const App: React.FC = () => {
                     ? 'Refreshing…'
                     : `${totalJobs} role${totalJobs === 1 ? '' : 's'} loaded${lastLoadedAt ? ` · Updated ${lastLoadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`}
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full border border-[#d6ece8] bg-[#f1fbf9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#0f766e]">
+                    {feedType === 'direct' ? 'Community reviewed' : 'Policy filtered'}
+                  </span>
+                  <span className="rounded-full border border-[var(--cj-stroke-soft)] bg-white/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--cj-text-muted)]">
+                    {feedType === 'direct' ? 'Warm intros available' : 'Canada only'}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -491,7 +503,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="sticky top-[5.5rem] z-20 mb-5 rounded-[16px] border border-[var(--cj-stroke-soft)] bg-white/90 px-4 py-3 backdrop-blur-md shadow-[0_8px_18px_rgba(11,21,39,0.05)]">
+          <div className="cj-glass sticky top-[6.1rem] z-20 mb-5 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <label htmlFor="sort-jobs" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--cj-text-muted)]">
@@ -558,7 +570,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <section className="cj-surface-tinted mb-6 p-4 md:p-5">
+          <section className="cj-glass mb-6 p-4 md:p-5">
             <button
               type="button"
               onClick={toggleFounderNote}
@@ -594,7 +606,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-3 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white/80 px-3 py-2 text-xs leading-relaxed text-[var(--cj-text-secondary)]">
+            <div className="mt-3 rounded-[12px] border border-[var(--cj-stroke-soft)] bg-white/88 px-3 py-2 text-xs leading-relaxed text-[var(--cj-text-secondary)]">
               <span className="font-semibold text-[var(--cj-text-primary)]">Please note:</span> This is pre-alpha. I&apos;m learning as I build. If something doesn&apos;t work or you have feedback, let me know. Seriously.
             </div>
           </section>
@@ -615,7 +627,7 @@ const App: React.FC = () => {
               ))}
             </div>
           ) : loadError ? (
-            <div className="rounded-[16px] border border-red-200 bg-red-50 p-8 text-center text-red-700" role="alert">
+            <div className="cj-glass border-red-200 bg-red-50/90 p-8 text-center text-red-700" role="alert">
               <p className="mb-3 font-semibold">{loadError}</p>
               <p className="mb-4 text-sm text-red-600">Try refreshing this feed, or switch feeds while we retry upstream calls.</p>
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -639,7 +651,7 @@ const App: React.FC = () => {
               </div>
             </div>
           ) : jobs.length === 0 ? (
-            <div className="rounded-[16px] border border-dashed border-[var(--cj-stroke-strong)] bg-[var(--cj-surface-base)] px-6 py-14 text-center text-[var(--cj-text-muted)]">
+            <div className="cj-glass border-dashed border-[var(--cj-stroke-strong)] bg-[var(--cj-surface-base)]/92 px-6 py-14 text-center text-[var(--cj-text-muted)]">
               <p className="mb-2 text-base font-semibold text-[var(--cj-text-secondary)]">
                 No {feedType === 'aggregated' ? 'Canadian ' : ''}opportunities found for these filters.
               </p>
@@ -680,7 +692,7 @@ const App: React.FC = () => {
                 ))}
               </div>
               {totalPages > 1 && (
-                <div className="cj-surface-elevated mt-6 flex items-center justify-between px-4 py-3">
+                <div className="cj-glass mt-6 flex items-center justify-between px-4 py-3">
                   <button
                     type="button"
                     onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
@@ -710,7 +722,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col font-sans text-[var(--cj-text-primary)]">
+    <div className="relative flex min-h-screen flex-col font-sans text-[var(--cj-text-primary)]">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-40 top-14 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(53,206,184,0.2),transparent_70%)]" />
+        <div className="absolute right-[-7rem] top-[-3rem] h-[23rem] w-[23rem] rounded-full bg-[radial-gradient(circle,rgba(85,117,200,0.16),transparent_70%)]" />
+      </div>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[90] focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-[var(--cj-text-primary)] focus:shadow"
@@ -783,7 +799,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main id="main-content" className="w-full max-w-[1600px] flex-grow px-4 py-10 sm:px-6 lg:mx-auto lg:px-8">
+      <main id="main-content" className="w-full max-w-[1720px] flex-grow px-4 py-10 sm:px-6 lg:mx-auto lg:px-8">
         <Suspense
           fallback={
             <div className="flex flex-col items-center gap-3 py-20 text-center text-[var(--cj-text-muted)]" role="status" aria-live="polite">
@@ -796,8 +812,8 @@ const App: React.FC = () => {
         </Suspense>
       </main>
 
-      <footer className="mt-16 border-t border-[var(--cj-stroke-soft)] bg-white py-12">
-        <div className="max-w-[1600px] mx-auto px-4 text-center space-y-6">
+      <footer className="mt-16 border-t border-[var(--cj-stroke-soft)] bg-white/88 py-12 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1720px] space-y-6 px-4 text-center">
           <div className="flex items-center justify-center gap-3 text-lg font-semibold tracking-tight text-[var(--cj-accent-navy)]">
              <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--cj-accent-navy)] shadow-[0_8px_20px_rgba(11,19,43,0.24)]">
                <Hexagon size={19} strokeWidth={2.3} className="text-[var(--cj-accent)]" />

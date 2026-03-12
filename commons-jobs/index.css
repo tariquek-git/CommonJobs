@@ -4,24 +4,25 @@
 
 @layer base {
   :root {
-    --cj-bg-start: #f4f7fa;
-    --cj-bg-end: #eef3f6;
-    --cj-surface-base: #f8fafc;
+    --cj-bg-start: #f3f7fd;
+    --cj-bg-end: #ebf1f9;
+    --cj-surface-base: #f7faff;
     --cj-surface-elevated: #ffffff;
-    --cj-surface-tinted: #eef8f7;
-    --cj-stroke-soft: #dce5ea;
-    --cj-stroke-strong: #c8d6de;
-    --cj-text-primary: #0b1527;
-    --cj-text-secondary: #4d5e72;
-    --cj-text-muted: #6c7a8f;
-    --cj-accent: #2ab8aa;
-    --cj-accent-strong: #0f766e;
-    --cj-accent-navy: #0b132b;
+    --cj-surface-tinted: #edf9f6;
+    --cj-stroke-soft: #d5e1ec;
+    --cj-stroke-strong: #bfd0de;
+    --cj-text-primary: #0c1932;
+    --cj-text-secondary: #4f6078;
+    --cj-text-muted: #6d7e95;
+    --cj-accent: #35ceb8;
+    --cj-accent-strong: #0d7f70;
+    --cj-accent-navy: #0a1630;
     --cj-radius-12: 12px;
     --cj-radius-16: 16px;
     --cj-radius-20: 20px;
-    --cj-shadow-soft: 0 8px 20px rgba(11, 21, 39, 0.06);
-    --cj-shadow-elevated: 0 16px 34px rgba(11, 21, 39, 0.08);
+    --cj-shadow-soft: 0 10px 24px rgba(10, 22, 48, 0.07);
+    --cj-shadow-elevated: 0 20px 44px rgba(10, 22, 48, 0.1);
+    --cj-shadow-glow: 0 16px 34px rgba(53, 206, 184, 0.16);
   }
 
   * {
@@ -31,19 +32,28 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, system-ui, sans-serif;
     background:
-      radial-gradient(circle at top right, #f7fbff 0%, transparent 42%),
+      radial-gradient(1100px circle at 8% -12%, rgba(53, 206, 184, 0.17) 0%, transparent 56%),
+      radial-gradient(900px circle at 100% 0%, rgba(79, 113, 194, 0.12) 0%, transparent 52%),
+      radial-gradient(1200px circle at 50% 110%, rgba(53, 206, 184, 0.07) 0%, transparent 58%),
       linear-gradient(180deg, var(--cj-bg-start) 0%, var(--cj-bg-end) 100%);
     color: var(--cj-text-primary);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(53, 206, 184, 0.28);
+    color: var(--cj-accent-navy);
   }
 }
 
 @layer components {
   .cj-surface-base {
-    background: var(--cj-surface-base);
+    background: linear-gradient(180deg, #fbfdff 0%, var(--cj-surface-base) 100%);
     border: 1px solid var(--cj-stroke-soft);
     border-radius: var(--cj-radius-16);
+    box-shadow: 0 2px 8px rgba(10, 22, 48, 0.02);
   }
 
   .cj-surface-elevated {
@@ -57,6 +67,14 @@
     background: var(--cj-surface-tinted);
     border: 1px solid var(--cj-stroke-soft);
     border-radius: var(--cj-radius-16);
+  }
+
+  .cj-glass {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(213, 225, 236, 0.9);
+    border-radius: var(--cj-radius-16);
+    box-shadow: 0 14px 32px rgba(10, 22, 48, 0.06);
+    backdrop-filter: blur(16px);
   }
 }
 
