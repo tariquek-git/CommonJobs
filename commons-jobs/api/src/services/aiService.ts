@@ -8,8 +8,22 @@ const humanizeSummary = (value: string): string => {
     .replace(/\butilize\b/gi, 'use')
     .replace(/\bsynerg(?:y|ize)\b/gi, 'work together')
     .replace(/\brobust\b/gi, 'strong')
-    .replace(/\bdynamic\b/gi, 'fast-moving');
-  return cleaned.slice(0, 360);
+    .replace(/\bdynamic\b/gi, 'fast-moving')
+    .replace(/\bmission[- ]critical\b/gi, 'important')
+    .replace(/\bworld[- ]class\b/gi, 'high quality')
+    .replace(/\bcutting[- ]edge\b/gi, 'modern')
+    .replace(/\bbest[- ]in[- ]class\b/gi, 'strong')
+    .replace(/\binnovative\b/gi, 'practical')
+    .replace(/\bimpactful\b/gi, 'useful')
+    .replace(/\bhighly scalable\b/gi, 'scalable')
+    .replace(/\bfast[- ]paced\b/gi, 'busy')
+    .replace(/\bcross[- ]functional\b/gi, 'cross-team')
+    .replace(/\bstakeholders?\b/gi, 'teams')
+    .replace(/\bdrive\b/gi, 'lead')
+    .replace(/\bchampion\b/gi, 'support')
+    .replace(/\broadmap execution\b/gi, 'shipping work');
+
+  return cleaned.slice(0, 900);
 };
 
 const inferRemotePolicy = (text: string): string => {
@@ -63,7 +77,7 @@ const buildSummary = (description: string): string => {
   const cleaned = compact(description);
   if (!cleaned) return '';
   const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
-  return compact(sentences.slice(0, 2).join(' ').slice(0, 360));
+  return humanizeSummary(sentences.slice(0, 5).join(' '));
 };
 
 export const heuristicAnalyzeJobDescription = (description: string) => {
@@ -164,8 +178,11 @@ export const createAiService = (apiKey?: string, model = 'gemini-flash-latest', 
         contents: [
           'Extract structured metadata from this job post.',
           'Write summary as a real person would explain it to a friend.',
-          'Keep summary to 2 short sentences, plain language, and avoid corporate buzzwords.',
-          'Do not use hype, marketing language, or generic filler.',
+          'Summary length: 4-6 sentences (about 90-150 words).',
+          'Use plain language and concrete details from the JD.',
+          'Avoid corporate buzzwords, jargon, hype, or generic filler.',
+          'No phrases like "world-class", "leverage", "cutting-edge", "mission-critical", or "dynamic environment".',
+          'Explain what they will actually do day to day, who they work with, and what success looks like.',
           '',
           description.slice(0, 8000)
         ].join('\n'),

@@ -780,12 +780,12 @@ const SubmitJobForm: React.FC<SubmitJobFormProps> = ({
 
             <div className="space-y-1">
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
-                    Editable Intelligence Summary <span className="text-gray-400 font-normal ml-1">(AI Generated)</span>
+                    Editable Intelligence Summary <span className="text-gray-400 font-normal ml-1">(AI Humanized)</span>
                 </label>
                 <textarea 
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-600 text-sm" 
-	                    rows={3}
-	                    placeholder="Brief 3-sentence summary of the role..."
+	                    rows={5}
+	                    placeholder="Human summary (4-6 sentences): what you will do, who you work with, and what success looks like."
 	                    value={formData.intelligenceSummary || ''} 
 	                    onChange={(e) => setFormData((prev) => ({ ...prev, intelligenceSummary: e.target.value }))} 
 	                />

@@ -122,7 +122,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onSelect }) => {
       {/* Intelligence Block */}
       {job.intelligenceSummary && (
           <div className={`mb-6 rounded-lg p-3 grow ${isAggregated ? 'bg-[#eefaf8] border border-[#d7efec]' : 'bg-gray-50/80 border border-gray-100'}`}>
-              <p className="text-xs md:text-sm text-gray-600 leading-relaxed line-clamp-3">
+              <p className="text-xs md:text-sm text-gray-600 leading-relaxed line-clamp-4">
                   {job.intelligenceSummary}
               </p>
           </div>

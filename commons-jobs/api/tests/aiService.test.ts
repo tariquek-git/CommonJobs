@@ -78,7 +78,8 @@ describe('createAiService', () => {
       text: JSON.stringify({
         roleTitle: 'Staff Engineer',
         companyName: 'Acme',
-        summary: 'You will leverage robust systems to synergize teams and utilize cross-functional workflows.'
+        summary:
+          'You will leverage robust systems to synergize teams and utilize cross-functional workflows in a mission-critical environment.'
       })
     });
 
@@ -90,5 +91,31 @@ describe('createAiService', () => {
     expect(result?.summary).not.toContain('leverage');
     expect(result?.summary).not.toContain('utilize');
     expect(result?.summary).not.toContain('synergize');
+    expect(result?.summary).not.toContain('mission-critical');
+  });
+
+  it('keeps longer humanized summaries instead of forcing a short 2-sentence cap', async () => {
+    const longSummary =
+      'You will lead product planning for cards and payments across Canada. ' +
+      'Each week you will work with design, engineering, and risk to shape features. ' +
+      'You will write clear specs, answer open questions, and unblock delivery decisions. ' +
+      'You will review metrics after launch and adjust based on user behavior. ' +
+      'You will partner with support and operations to keep the experience reliable.';
+
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        roleTitle: 'Senior Product Manager',
+        companyName: 'Acme',
+        summary: longSummary
+      })
+    });
+
+    const { createAiService } = await import('../src/services/aiService.js');
+    const service = createAiService('fake-key', 'gemini-flash-latest', 5000);
+    const result = await service.analyzeJobDescription('Acme is hiring');
+
+    expect(result?.summary.length || 0).toBeGreaterThan(360);
+    expect(result?.summary.length || 0).toBeLessThanOrEqual(900);
+    expect(result?.summary).toContain('Each week you will work with design');
   });
 });
