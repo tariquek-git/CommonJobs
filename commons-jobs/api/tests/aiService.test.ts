@@ -47,8 +47,9 @@ describe('createAiService', () => {
     const { createAiService } = await import('../src/services/aiService.js');
     const service = createAiService('fake-key', 'gemini-flash-latest');
     const result = await service.analyzeJobDescription('Acme is hiring a risk engineer in Toronto, Canada.');
+    const structured = result as Record<string, unknown> | null;
 
-    expect(result?.companyName).toBe('Acme');
+    expect(structured?.companyName).toBe('Acme');
     expect(generateContentMock).toHaveBeenCalledTimes(2);
     const secondCall = (generateContentMock.mock.calls as any[])[1]?.[0] as { model?: string };
     expect(secondCall.model).toBe('gemini-2.5-flash');
