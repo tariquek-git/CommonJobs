@@ -84,14 +84,20 @@ const truncate = (value, max) => {
 
 const stripHtml = (value) => {
   if (!value) return '';
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<\/?[^>]+>/g, ' ')
+  const decoded = value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;nbsp;/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&#39;/g, "'");
+
+  return decoded
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/?[^>]+>/g, ' ')
+    .replace(/&[a-z0-9#]+;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
